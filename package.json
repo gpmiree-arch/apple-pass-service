@@ -1,0 +1,29 @@
+{
+  "name": "apple-pass-service",
+  "version": "1.0.0",
+  "description": "Apple Wallet PKPass Signing Microservice",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "tsx src/test.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0",
+    "cors": "^2.8.5",
+    "passkit-generator": "^3.2.1",
+    "zod": "^3.23.8",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0"
+  }
+}
