@@ -893,10 +893,11 @@
   <div class="col-right">
     <div class="chat-header">
       <div class="chat-avatar">G</div>
-      <div>
+      <div style="flex:1">
         <div class="chat-name">DIA STRATEGIST</div>
-        <div class="chat-status">● online — antwortet sofort</div>
+        <div class="chat-status" id="chat-status">● online — antwortet sofort</div>
       </div>
+      <button class="quick-btn" onclick="setProxy()" title="KI-Backend / Proxy verbinden" style="padding:5px 9px">⚙️</button>
     </div>
     <div class="chat-messages" id="chat-messages"></div>
     <div class="quick-actions" id="quick-actions"></div>
@@ -1042,6 +1043,7 @@ function setActiveStep(id) {
     el.classList.add('active');
     el.querySelector('.step-icon').textContent = '▶';
   }
+  saveState();
 }
 
 /* ===================== PLANNER DATA ===================== */
@@ -1140,7 +1142,7 @@ function renderBlocks(tabIndex) {
       </div>`;
     }
     const todos = item.todos ? `<div class="todos">${item.todos.map((t, ti) => `
-      <div class="todo" data-score="${item.score || ''}" onclick="toggleTodo(this)">
+      <div class="todo" data-todo-key="${tabIndex}-${idx}-${ti}" data-score="${item.score || ''}" onclick="toggleTodo(this)">
         <div class="todo-box"></div>
         <div class="todo-text">${t}</div>
       </div>`).join('')}</div>` : '';
@@ -1166,6 +1168,7 @@ function toggleTodo(el) {
   // Outreach todos increment DM counter visually
   recalcOutreach();
   updateScore();
+  saveState();
 }
 
 function recalcOutreach() {
@@ -1238,6 +1241,7 @@ function bookRevenue() {
   input.value = '';
   updateMissionBar();
   updateScore();
+  saveState();
   // Trigger AI feedback
   pushUserMessage('Ich habe gerade €' + amount.toLocaleString('de-DE') + ' verdient und gebucht.');
   runAI();
@@ -1247,11 +1251,13 @@ function bookRevenue() {
 function incrementCalls(n = 1) {
   state.callsBooked += n;
   document.getElementById('kpi-calls').textContent = state.callsBooked;
+  saveState();
 }
 function incrementDM(n = 1) {
   state.dmCount += n;
   document.getElementById('kpi-dm').textContent = state.dmCount;
   updateScore();
+  saveState();
 }
 
 /* ===================== TABS ===================== */
@@ -1298,7 +1304,9 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 function mdInline(s) {
-  return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return escapeHtml(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
 }
 
 function addMessage(role, html, highlight) {
@@ -1362,17 +1370,88 @@ async function callClaude() {
   return data.content?.[0]?.text ?? 'Fehler.';
 }
 
+/* Offline-Demo-Antworten, solange kein Proxy gesetzt ist. Sobald CHAT_ENDPOINT
+   konfiguriert ist (⚙️), übernimmt der echte Claude über den Proxy. */
+function localStrategistReply() {
+  const last = [...state.chatHistory].reverse().find(m => m.role === 'user');
+  const msg = (last?.content || '').toLowerCase();
+  const daysLeft = state.targetDays - state.missionDay + 1;
+  const proj = Math.round(state.totalEarned / Math.max(1, state.missionDay) * 90);
+  const avg = Math.ceil((state.targetAmount - state.totalEarned) / Math.max(1, daysLeft));
+  let reply;
+
+  if (msg.includes('close') && msg.includes('woche')) {
+    reply = 'Bei Ø-Deal €4.000 brauchst du ~6 Closes/Woche für €24,5K — also 1 Close pro Tag. Du clost mit 60%, das ist nicht dein Problem. Die echte Frage: hast du heute genug Leads für 2 Calls? Wenn nein, ist genau das dein einziger Engpass.';
+  } else if (msg.includes('kein call')) {
+    reply = 'Kein Call heute heißt: Engpass verschoben, nicht gelöst. Warum keiner? Fehlen Leads → jetzt sofort 5 personalisierte DMs. Waren Leads da und du hast nicht gebucht → das ist Vermeidung, nicht Strategie. Buch 2 Calls für morgen, bevor du heute zumachst.';
+  } else if (msg.includes('bewerte')) {
+    reply = `Heute: €${state.todayEarned.toLocaleString('de-DE')}, ${state.dmCount} DMs, ${state.callsBooked} Calls. Revenue zählt 40% — der eigentliche Hebel. Gym+Run sind Pflicht, kein Bonus. Ehrliche Frage: war das ein Verkaufs-Tag oder ein System-Bastel-Tag?`;
+  } else if (msg.includes('skalierung') || msg.includes('next step') || msg.includes('nächste')) {
+    reply = `Hochrechnung: €${state.totalEarned.toLocaleString('de-DE')} ÷ ${state.missionDay} × 90 ≈ €${proj.toLocaleString('de-DE')}. ${proj < 80000 ? 'Unter €80K — du brauchst mehr Leads, nicht mehr System. Verdopple deinen besten Kanal.' : 'Über €80K — skaliere den Gewinner-Kanal und zieh das Ad-Budget hoch.'} Kein neues Feature, bevor der Lead-Flow steht.`;
+  } else if (msg.includes('close') || msg.includes('verdient') || msg.includes('gebucht')) {
+    reply = 'Stark. Jetzt nicht feiern und stehenbleiben: WhatsApp-Onboarding für den Kunden starten, dann sofort den nächsten Lead in die Pipeline. Momentum kommt vom nächsten Call, nicht vom letzten Close.';
+  } else {
+    reply = `Tag ${state.missionDay}/90, €${state.totalEarned.toLocaleString('de-DE')} verdient, noch ${daysLeft} Tage — Ø nötig €${avg.toLocaleString('de-DE')}/Tag. Konkrete nächste Handlung: 5 personalisierte DMs raus, dann 1 Call buchen. Jetzt, nicht später.`;
+  }
+
+  reply += '\n\n(Demo-Modus — verbinde über ⚙️ einen Proxy für echte KI-Antworten.)';
+  return new Promise(res => setTimeout(() => res(reply), 600));
+}
+
 async function runAI() {
   showTyping();
   try {
-    const reply = await callClaude();
+    const reply = CHAT_ENDPOINT ? await callClaude() : await localStrategistReply();
     hideTyping();
     state.chatHistory.push({ role: 'assistant', content: reply });
     addMessage('assistant', mdInline(reply));
+    saveState();
   } catch (e) {
     hideTyping();
-    addMessage('assistant', 'Verbindungsfehler. Prüfe deine Internetverbindung.');
+    addMessage('assistant', 'Verbindungsfehler zum Proxy. Prüf die Proxy-URL (⚙️) oder deine Internetverbindung.');
   }
+}
+
+/* ===================== PERSISTENCE ===================== */
+function saveState() {
+  const checkedTodos = [...document.querySelectorAll('.todo.checked')]
+    .map(t => t.dataset.todoKey).filter(Boolean);
+  const activeStep = document.querySelector('.step.active')?.dataset.step || null;
+  try {
+    localStorage.setItem('dia_state', JSON.stringify({
+      totalEarned: state.totalEarned,
+      todayEarned: state.todayEarned,
+      missionDay: state.missionDay,
+      callsBooked: state.callsBooked,
+      dmCount: state.dmCount,
+      chatHistory: state.chatHistory.slice(-30),
+      checkedTodos,
+      activeStep
+    }));
+  } catch (e) {}
+}
+
+function loadState() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('dia_state') || 'null'); }
+  catch (e) { saved = null; }
+  if (!saved) return null;
+  state.totalEarned = saved.totalEarned || 0;
+  state.todayEarned = saved.todayEarned || 0;
+  state.missionDay = saved.missionDay || 1;
+  state.callsBooked = saved.callsBooked || 0;
+  state.dmCount = saved.dmCount || 0;
+  state.chatHistory = Array.isArray(saved.chatHistory) ? saved.chatHistory : [];
+  return saved;
+}
+
+function setProxy() {
+  const cur = localStorage.getItem('dia_proxy') || '';
+  const url = prompt('KI-Backend / Proxy-URL (leer = Demo-Modus):', cur);
+  if (url === null) return;
+  if (url.trim()) localStorage.setItem('dia_proxy', url.trim());
+  else localStorage.removeItem('dia_proxy');
+  location.reload();
 }
 
 function sendMessage() {
@@ -1430,6 +1509,7 @@ function showWelcome() {
 
 /* ===================== INIT ===================== */
 function init() {
+  const saved = loadState();
   renderRoadmap();
   renderBlocks(0);
   renderBlocks(1);
@@ -1437,9 +1517,32 @@ function init() {
   renderQuickActions();
   initDates();
   updateMissionBar();
+
+  // Restore checked todos
+  if (saved && Array.isArray(saved.checkedTodos)) {
+    saved.checkedTodos.forEach(key => {
+      const el = document.querySelector(`.todo[data-todo-key="${key}"]`);
+      if (el) { el.classList.add('checked'); el.querySelector('.todo-box').textContent = '✓'; }
+    });
+    recalcOutreach();
+  }
+  document.getElementById('kpi-calls').textContent = state.callsBooked;
+  document.getElementById('kpi-dm').textContent = state.dmCount;
   updateScore();
-  setActiveStep('0-0');
-  showWelcome();
+  setActiveStep(saved && saved.activeStep ? saved.activeStep : '0-0');
+
+  // Chat status reflects demo vs live
+  document.getElementById('chat-status').textContent =
+    CHAT_ENDPOINT ? '● online — Claude verbunden' : '● Demo-Modus — ⚙️ für echte KI';
+
+  // Restore chat history, or show welcome on first run
+  if (saved && saved.chatHistory && saved.chatHistory.length) {
+    saved.chatHistory.forEach(m =>
+      addMessage(m.role === 'assistant' ? 'assistant' : 'user', mdInline(m.content)));
+  } else {
+    showWelcome();
+    saveState();
+  }
 }
 init();
 </script>
