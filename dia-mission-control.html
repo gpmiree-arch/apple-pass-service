@@ -922,6 +922,21 @@ const state = {
   chatHistory: []
 };
 
+/* ===================== CHAT PROXY CONFIG ===================== */
+/* The chat calls a server-side proxy so the Anthropic API key never lives
+   in the browser. Point it at your deployed proxy in one of three ways:
+     1. Edit DEFAULT_PROXY below
+     2. Append ?proxy=https://your-proxy.example.com to the URL
+     3. localStorage.setItem('dia_proxy', 'https://your-proxy.example.com')
+   If left empty, the chat falls back to a direct browser call (only works
+   behind a key-injecting proxy; otherwise it shows a connection error). */
+const DEFAULT_PROXY = '';
+const CHAT_ENDPOINT =
+  new URLSearchParams(location.search).get('proxy') ||
+  localStorage.getItem('dia_proxy') ||
+  DEFAULT_PROXY ||
+  '';
+
 /* ===================== AI SYSTEM PROMPT ===================== */
 const AI_SYSTEM_PROMPT = `Du bist DIA Strategist, ein direkter, ehrlicher Business-Coach für Gabriel (21, Einzelunternehmer, Hürth/Köln). Gabriel baut DIA – Digital Income Architecture. Sein Ziel: €100.000 Gewinn in 90 Tagen, dann US-Markt.
 
@@ -1320,21 +1335,29 @@ async function callClaude() {
     .replace('TODAY_EARNED', state.todayEarned.toLocaleString('de-DE'))
     .replace('MISSION_DAY', String(state.missionDay));
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const payload = {
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1000,
+    system,
+    messages: state.chatHistory.slice(-8)
+  };
+
+  // Proxy path keeps the key server-side; direct path only works behind a
+  // key-injecting proxy and needs the extra Anthropic browser headers.
+  const endpoint = CHAT_ENDPOINT || 'https://api.anthropic.com/v1/messages';
+  const headers = { 'Content-Type': 'application/json' };
+  if (!CHAT_ENDPOINT) {
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+
+  const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system,
-      messages: state.chatHistory.slice(-8)
-    })
+    headers,
+    body: JSON.stringify(payload)
   });
 
+  if (!response.ok) throw new Error('HTTP ' + response.status);
   const data = await response.json();
   return data.content?.[0]?.text ?? 'Fehler.';
 }
