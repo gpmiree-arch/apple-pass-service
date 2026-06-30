@@ -13,6 +13,8 @@
  *      oder  localStorage.setItem('dia_proxy', 'https://<projekt>.vercel.app/api/chat')
  */
 
+export const config = { maxDuration: 30 };
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
