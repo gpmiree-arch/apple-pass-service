@@ -61,10 +61,11 @@ export default {
 
     const payload = {
       model: body.model || 'claude-sonnet-4-6',
-      max_tokens: body.max_tokens || 1000,
+      max_tokens: body.max_tokens || 1024,
       system: body.system,
-      messages: Array.isArray(body.messages) ? body.messages.slice(-8) : []
+      messages: Array.isArray(body.messages) ? body.messages : []
     };
+    if (Array.isArray(body.tools) && body.tools.length) payload.tools = body.tools;
 
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

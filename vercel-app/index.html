@@ -845,6 +845,7 @@
   /* ===== TOAST + CONFETTI ===== */
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--gold-dim); color: var(--white); padding: 12px 18px; border-radius: 10px; z-index: 120; font-size: 13px; box-shadow: 0 6px 24px rgba(0,0,0,.5); opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  #mic-btn.rec { background: var(--red) !important; color: #fff !important; animation: pulse 1.2s infinite; }
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 115; }
   .confetti-piece { position: fixed; width: 9px; height: 9px; will-change: transform, opacity; }
 
@@ -1060,7 +1061,7 @@
     <div class="chat-header">
       <div class="chat-avatar">G</div>
       <div style="flex:1">
-        <div class="chat-name">DIA STRATEGIST</div>
+        <div class="chat-name">JARVIS</div>
         <div class="chat-status" id="chat-status">● online — antwortet sofort</div>
       </div>
       <button class="quick-btn" onclick="viewMemory()" title="Memory ansehen / bearbeiten" style="padding:5px 9px">🧠</button>
@@ -1069,7 +1070,8 @@
     <div class="chat-messages" id="chat-messages"></div>
     <div class="quick-actions" id="quick-actions"></div>
     <div class="input-row">
-      <textarea class="chat-input" id="chat-input" placeholder="Frag deinen Strategist…" rows="1"></textarea>
+      <textarea class="chat-input" id="chat-input" placeholder="Sag Jarvis, was zu tun ist…" rows="1"></textarea>
+      <button class="send-btn" id="mic-btn" onclick="startVoice()" title="Spracheingabe" style="background:var(--surface2);color:var(--gold)">🎤</button>
       <button class="send-btn" onclick="sendMessage()">➤</button>
     </div>
   </div>
@@ -1179,6 +1181,10 @@
       <div class="view-actions">
         <button class="btn-ghost" onclick="setProxy()">🔑 API-Key / Proxy</button>
         <button class="btn-ghost" onclick="viewMemory()">🧠 Memory</button>
+      </div>
+      <div class="view-actions" style="margin-top:8px">
+        <button class="btn-ghost" id="tts-toggle" onclick="toggleTts()">🔊 Sprachausgabe</button>
+        <button class="btn-ghost" id="brief-toggle" onclick="toggleAutoBrief()">☀️ Auto-Briefing beim Start</button>
       </div>
       <p class="muted" id="conn-status" style="margin-top:10px"></p>
     </div>
@@ -1721,12 +1727,13 @@ async function runAI() {
   showTyping();
   try {
     const hasReal = CHAT_ENDPOINT || (localStorage.getItem('dia_key') || '').trim();
-    const raw = hasReal ? await callClaude() : await localStrategistReply();
+    const raw = hasReal ? await agentLoop() : await localStrategistReply();
     hideTyping();
     const reply = extractMemory(raw);
     state.chatHistory.push({ role: 'assistant', content: reply });
     addMessage('assistant', mdInline(reply));
     saveState();
+    if (typeof speak === 'function') speak(reply);
   } catch (e) {
     hideTyping();
     addMessage('assistant', 'Verbindungsfehler. Prüf deinen API-Key (⚙️) oder deine Internetverbindung.');
@@ -1772,8 +1779,8 @@ function buildMemory() {
 }
 function extractMemory(text) {
   const facts = [];
-  let cleaned = text.replace(/^[ \t]*\[MEMORY\][ \t:]*(.+)$/gim, (_, f) => { facts.push(f.trim()); return ''; });
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  let cleaned = text.replace(/\[MEMORY\][ \t:]*([^\n]*)/gi, (_, f) => { if (f && f.trim()) facts.push(f.trim()); return ''; });
+  cleaned = cleaned.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   if (facts.length) {
     const mem = getMemory();
     facts.forEach(f => { if (f && !mem.includes(f)) mem.push(f); });
@@ -1869,6 +1876,7 @@ function quickSend(text) {
 
 /* ===================== QUICK ACTIONS ===================== */
 const quickActions = [
+  { label: '☀️ Briefing', msg: 'Gib mir mein kurzes Morgen-Briefing: Top 3 für heute plus fällige Follow-ups.' },
   { label: '📊 Closes berechnen', msg: 'Wie viele Closes brauche ich diese Woche?' },
   { label: '⚠️ Kein Call heute', msg: 'Ich habe heute keinen Call gehabt. Was jetzt?' },
   { label: '⭐ Tag bewerten', msg: 'Bewerte meinen Tag.' },
@@ -1912,7 +1920,7 @@ function showWelcome() {
 /* ---------- App store ---------- */
 const APP_KEY = 'dia_app';
 function defaultApp() {
-  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0 }, settings: { notifs: false, startDate: '', lastMs: 0 } };
+  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0 }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '' } };
 }
 function loadApp() {
   try { const d = JSON.parse(localStorage.getItem(APP_KEY) || 'null'); const base = defaultApp(); if (d) { Object.assign(base, d); base.settings = Object.assign(defaultApp().settings, d.settings || {}); base.focus = Object.assign(defaultApp().focus, d.focus || {}); } return base; }
@@ -2210,7 +2218,7 @@ function scheduleNotifs() {
 }
 
 /* ---------- Tools: inbox / export / import / reset ---------- */
-function renderTools() { renderInbox(); const c = document.getElementById('conn-status'); if (c) c.textContent = hasClaude() ? 'Status: Claude verbunden ✓' : 'Status: Demo-Modus (kein Key gesetzt)'; }
+function renderTools() { renderInbox(); updateToggleBtns(); const c = document.getElementById('conn-status'); if (c) c.textContent = hasClaude() ? 'Status: Claude verbunden ✓ (Jarvis kann handeln)' : 'Status: Demo-Modus (kein Key gesetzt)'; }
 function addInbox() { const i = document.getElementById('inbox-input'); const v = i.value.trim(); if (!v) return; app.inbox.unshift({ id: uid(), text: v, done: false }); i.value = ''; saveApp(); renderInbox(); }
 function toggleInbox(id) { const it = app.inbox.find(x => x.id === id); if (it) { it.done = !it.done; saveApp(); renderInbox(); } }
 function delInbox(id) { app.inbox = app.inbox.filter(x => x.id !== id); saveApp(); renderInbox(); }
@@ -2250,6 +2258,115 @@ function renderCmdk(q) {
 }
 function runCmd(i) { closeCmdk(); const c = COMMANDS[i]; if (c) c.run(); }
 
+/* ============================================================= *
+ *  JARVIS — agentic layer (Claude tool use operates the app)    *
+ * ============================================================= */
+const JARVIS_TOOLS = [
+  { name: 'book_revenue', description: 'Bucht Umsatz für heute (z. B. nach einem Close).', input_schema: { type: 'object', properties: { amount: { type: 'number', description: 'Betrag in Euro' }, note: { type: 'string' } }, required: ['amount'] } },
+  { name: 'create_lead', description: 'Legt einen neuen Lead im CRM an.', input_schema: { type: 'object', properties: { name: { type: 'string' }, value: { type: 'number', description: 'Deal-Wert €' }, source: { type: 'string' }, stage: { type: 'string', description: 'neu|kontaktiert|call|angebot|gewonnen|verloren' }, note: { type: 'string' }, follow_up: { type: 'string', description: 'YYYY-MM-DD oder heute/morgen' } }, required: ['name'] } },
+  { name: 'update_lead', description: 'Aktualisiert einen Lead (Stage/Wert/Follow-up/Notiz). Lead per Name oder ID.', input_schema: { type: 'object', properties: { name_or_id: { type: 'string' }, stage: { type: 'string' }, value: { type: 'number' }, follow_up: { type: 'string' }, note: { type: 'string' } }, required: ['name_or_id'] } },
+  { name: 'delete_lead', description: 'Löscht einen Lead.', input_schema: { type: 'object', properties: { name_or_id: { type: 'string' } }, required: ['name_or_id'] } },
+  { name: 'list_leads', description: 'Listet Leads, optional nach Stage gefiltert.', input_schema: { type: 'object', properties: { stage: { type: 'string' } } } },
+  { name: 'get_status', description: 'Liefert Tagesstatus, Score, Pipeline und Forecast.', input_schema: { type: 'object', properties: {} } },
+  { name: 'get_followups', description: 'Listet fällige Follow-ups.', input_schema: { type: 'object', properties: {} } },
+  { name: 'add_task', description: 'Erfasst eine Aufgabe/Idee in der Inbox.', input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+  { name: 'log_activity', description: 'Setzt die heutigen Calls und/oder DMs.', input_schema: { type: 'object', properties: { calls: { type: 'number' }, dms: { type: 'number' } } } },
+  { name: 'add_kpi', description: 'Speichert Tages-KPIs (CPL, Close-Rate %, Ad-Spend, ROAS).', input_schema: { type: 'object', properties: { cpl: { type: 'number' }, close_rate: { type: 'number' }, ad_spend: { type: 'number' }, roas: { type: 'number' } } } },
+  { name: 'start_timer', description: 'Startet den Deep-Work-Timer (Standard 25 min).', input_schema: { type: 'object', properties: { minutes: { type: 'number' } } } },
+  { name: 'navigate', description: 'Öffnet eine Ansicht: mission|crm|analytics|agents|focus|tools.', input_schema: { type: 'object', properties: { view: { type: 'string' } }, required: ['view'] } },
+  { name: 'remember', description: 'Merkt sich einen dauerhaften Fakt über Gabriel.', input_schema: { type: 'object', properties: { fact: { type: 'string' } }, required: ['fact'] } }
+];
+
+function normStage(s) { if (!s) return 'neu'; s = ('' + s).toLowerCase().trim(); const m = { neu: 'neu', new: 'neu', kontaktiert: 'kontaktiert', contacted: 'kontaktiert', call: 'call', 'call gebucht': 'call', angebot: 'angebot', proposal: 'angebot', offer: 'angebot', gewonnen: 'gewonnen', won: 'gewonnen', verloren: 'verloren', lost: 'verloren' }; return m[s] || (STAGES.find(x => x.id === s) ? s : 'neu'); }
+function jParseDate(v) { if (!v) return ''; v = ('' + v).toLowerCase().trim(); if (v === 'today' || v === 'heute') return todayKey(); if (v === 'tomorrow' || v === 'morgen') { const d = new Date(); d.setDate(d.getDate() + 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); } return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''; }
+function findLead(q) { if (!q) return null; const s = ('' + q).toLowerCase(); return app.leads.find(l => l.id === q) || app.leads.find(l => (l.name || '').toLowerCase().includes(s)); }
+function jarvisRefresh() { updateCrmBadge(); const v = document.body.dataset.view; if (v === 'crm') renderCRM(); else if (v === 'analytics') renderAnalytics(); else if (v === 'tools') renderTools(); else if (v === 'focus') renderFocus(); }
+
+function executeTool(name, a) {
+  a = a || {};
+  switch (name) {
+    case 'book_revenue': { const amt = Math.round(+a.amount || 0); if (amt <= 0) return 'Ungültiger Betrag.'; state.todayEarned += amt; state.totalEarned += amt; logRevenue(amt); updateMissionBar(); updateScore(); saveState(); checkMilestones(); confetti(); jarvisRefresh(); return 'Gebucht: ' + fmtEur(amt) + '. Heute ' + fmtEur(state.todayEarned) + ', Total ' + fmtEur(state.totalEarned) + '.'; }
+    case 'create_lead': { const l = { id: uid(), createdAt: todayKey(), wonBooked: false, name: a.name || 'Unbenannt', source: a.source || '', value: +a.value || 0, stage: normStage(a.stage), note: a.note || '', nextFollowUp: jParseDate(a.follow_up) }; if (l.stage === 'gewonnen') { l.wonBooked = true; bookFromCRM(l.value); } app.leads.push(l); saveApp(); jarvisRefresh(); return 'Lead angelegt: ' + l.name + ' (' + fmtEur(l.value) + ', ' + l.stage + ').'; }
+    case 'update_lead': { const l = findLead(a.name_or_id); if (!l) return 'Lead nicht gefunden: ' + a.name_or_id; if (a.stage) { l.stage = normStage(a.stage); if (l.stage === 'gewonnen' && !l.wonBooked) { l.wonBooked = true; bookFromCRM(l.value); confetti(); } } if (a.value != null) l.value = +a.value; if (a.follow_up) l.nextFollowUp = jParseDate(a.follow_up); if (a.note) l.note = a.note; saveApp(); jarvisRefresh(); return 'Aktualisiert: ' + l.name + ' → ' + l.stage + (l.nextFollowUp ? ', FU ' + l.nextFollowUp : '') + '.'; }
+    case 'delete_lead': { const l = findLead(a.name_or_id); if (!l) return 'Lead nicht gefunden.'; app.leads = app.leads.filter(x => x !== l); saveApp(); jarvisRefresh(); return 'Gelöscht: ' + l.name + '.'; }
+    case 'list_leads': { let ls = app.leads; if (a.stage) ls = ls.filter(x => x.stage === normStage(a.stage)); if (!ls.length) return 'Keine Leads.'; return ls.map(l => l.name + ' — ' + fmtEur(l.value) + ' — ' + l.stage + (l.nextFollowUp ? ' — FU ' + l.nextFollowUp : '')).join('\n'); }
+    case 'get_status': return buildDayStatus() + '\nPipeline gewichtet: ' + fmtEur(pipelineValue()) + '\nForecast Tag 90: ' + fmtEur(state.totalEarned + pipelineValue());
+    case 'get_followups': { const due = app.leads.filter(l => l.nextFollowUp && l.nextFollowUp <= todayKey() && l.stage !== 'gewonnen' && l.stage !== 'verloren'); return due.length ? 'Fällig: ' + due.map(l => l.name + ' (' + l.stage + ')').join(', ') : 'Keine fälligen Follow-ups.'; }
+    case 'add_task': { if (!a.text) return 'Kein Text.'; app.inbox.unshift({ id: uid(), text: a.text, done: false }); saveApp(); jarvisRefresh(); return 'Aufgabe erfasst: ' + a.text; }
+    case 'log_activity': { if (a.calls != null) state.callsBooked = Math.max(0, Math.round(+a.calls)); if (a.dms != null) state.dmCount = Math.max(0, Math.round(+a.dms)); const kc = document.getElementById('kpi-calls'); if (kc) kc.textContent = state.callsBooked; const kd = document.getElementById('kpi-dm'); if (kd) kd.textContent = state.dmCount; updateScore(); saveState(); return 'Aktivität: ' + state.callsBooked + ' Calls, ' + state.dmCount + ' DMs.'; }
+    case 'add_kpi': { app.metrics.unshift({ date: todayKey(), cpl: +a.cpl || 0, closeRate: +a.close_rate || 0, adSpend: +a.ad_spend || 0, roas: +a.roas || 0 }); saveApp(); jarvisRefresh(); return 'KPI gespeichert.'; }
+    case 'start_timer': { const m = Math.max(1, Math.round(+a.minutes || 25)); pomoRemain = m * 60; setView('focus'); pomoRender(); if (!pomoRunning) pomoToggle(); return 'Deep-Work Timer gestartet: ' + m + ' min.'; }
+    case 'navigate': { const v = ('' + (a.view || '')).toLowerCase(); const map = { mission: 'mission', crm: 'crm', analytics: 'analytics', analyse: 'analytics', agents: 'agents', agenten: 'agents', focus: 'focus', fokus: 'focus', tools: 'tools' }; if (map[v]) { setView(map[v]); return 'Geöffnet: ' + map[v]; } return 'Unbekannte Ansicht.'; }
+    case 'remember': { if (!a.fact) return 'Kein Fakt.'; const mem = getMemory(); if (!mem.includes(a.fact)) { mem.push(a.fact); while (mem.length > 25) mem.shift(); localStorage.setItem('dia_memory', JSON.stringify(mem)); } return 'Gemerkt: ' + a.fact; }
+    default: return 'Unbekanntes Tool: ' + name;
+  }
+}
+
+function buildJarvisSystem() {
+  return AI_SYSTEM_PROMPT
+    .replace('TOTAL_EARNED', state.totalEarned.toLocaleString('de-DE'))
+    .replace('TODAY_EARNED', state.todayEarned.toLocaleString('de-DE'))
+    .replace('MISSION_DAY', String(missionDayNow()))
+    .replace('MEMORY_BLOCK', buildMemory())
+    .replace('DAY_STATUS', buildDayStatus())
+    + '\n\nDU BIST JARVIS — du kannst das Dashboard aktiv bedienen. Nutze deine Tools, um Leads anzulegen/zu verschieben, Umsatz zu buchen, Follow-ups/Aufgaben zu setzen, KPIs zu erfassen, den Timer zu starten oder Ansichten zu öffnen, wenn Gabriel das möchte. Handle direkt und bestätige knapp, was du getan hast. Erfinde keine Zahlen; bei echter Unklarheit kurz nachfragen statt raten.';
+}
+
+async function anthropicCallFull(system, messages, tools, maxTokens) {
+  const localKey = (localStorage.getItem('dia_key') || '').trim();
+  let endpoint = CHAT_ENDPOINT; const headers = { 'Content-Type': 'application/json' };
+  if (!CHAT_ENDPOINT) { endpoint = 'https://api.anthropic.com/v1/messages'; headers['anthropic-version'] = '2023-06-01'; headers['anthropic-dangerous-direct-browser-access'] = 'true'; if (localKey) headers['x-api-key'] = localKey; }
+  const payload = { model: 'claude-sonnet-4-6', max_tokens: maxTokens || 1024, system, messages };
+  if (tools && tools.length) payload.tools = tools;
+  const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+async function agentLoop() {
+  const system = buildJarvisSystem();
+  let messages = state.chatHistory.slice(-8).map(m => ({ role: m.role, content: m.content }));
+  while (messages.length && messages[0].role !== 'user') messages.shift();
+  if (!messages.length) messages = [{ role: 'user', content: '(start)' }];
+  let acted = false;
+  for (let step = 0; step < 6; step++) {
+    const resp = await anthropicCallFull(system, messages, JARVIS_TOOLS, 1200);
+    const content = resp.content || [];
+    if (resp.stop_reason === 'tool_use') {
+      acted = true;
+      messages.push({ role: 'assistant', content });
+      const results = [];
+      for (const blk of content) { if (blk.type === 'tool_use') { let out; try { out = executeTool(blk.name, blk.input || {}); } catch (e) { out = 'Fehler: ' + (e && e.message); } results.push({ type: 'tool_result', tool_use_id: blk.id, content: String(out) }); } }
+      messages.push({ role: 'user', content: results });
+      continue;
+    }
+    const text = content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    return text || (acted ? 'Erledigt. ✅' : '…');
+  }
+  return 'Mehrere Aktionen ausgeführt. ✅';
+}
+
+/* ---------- Voice in / out ---------- */
+let recog = null, recognizing = false;
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast('Spracheingabe in diesem Browser nicht unterstützt'); return; }
+  if (recognizing) { try { recog && recog.stop(); } catch (e) {} return; }
+  recog = new SR(); recog.lang = 'de-DE'; recog.interimResults = false; recog.maxAlternatives = 1;
+  recognizing = true; const mic = document.getElementById('mic-btn'); if (mic) mic.classList.add('rec');
+  recog.onresult = e => { const t = e.results[0][0].transcript; const inp = document.getElementById('chat-input'); inp.value = (inp.value ? inp.value + ' ' : '') + t; inp.dispatchEvent(new Event('input')); };
+  recog.onend = () => { recognizing = false; const mic = document.getElementById('mic-btn'); if (mic) mic.classList.remove('rec'); };
+  recog.onerror = () => { recognizing = false; const mic = document.getElementById('mic-btn'); if (mic) mic.classList.remove('rec'); };
+  try { recog.start(); } catch (e) { recognizing = false; }
+}
+function speak(text) {
+  if (!app.settings.tts || !('speechSynthesis' in window) || !text) return;
+  try { const u = new SpeechSynthesisUtterance(text.replace(/[*_#>`]/g, '')); u.lang = 'de-DE'; u.rate = 1.05; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+}
+function toggleTts() { app.settings.tts = !app.settings.tts; saveApp(); updateToggleBtns(); toast(app.settings.tts ? 'Sprachausgabe an' : 'Sprachausgabe aus'); if (app.settings.tts) speak('Jarvis bereit.'); }
+function toggleAutoBrief() { app.settings.autoBrief = !app.settings.autoBrief; saveApp(); updateToggleBtns(); toast(app.settings.autoBrief ? 'Auto-Briefing beim Start an' : 'Auto-Briefing aus'); }
+function updateToggleBtns() { const t = document.getElementById('tts-toggle'); if (t) t.style.opacity = app.settings.tts ? '1' : '.5'; const b = document.getElementById('brief-toggle'); if (b) b.style.opacity = app.settings.autoBrief ? '1' : '.5'; }
+
 /* ---------- Module init ---------- */
 function initModules() {
   if (!app.settings.startDate) { app.settings.startDate = todayKey(); saveApp(); }
@@ -2264,6 +2381,11 @@ function initModules() {
   const mb = document.getElementById('modal-backdrop'); if (mb) mb.addEventListener('click', e => { if (e.target === mb) closeModal(); });
   const ck = document.getElementById('cmdk'); if (ck) ck.addEventListener('click', e => { if (e.target === ck) closeCmdk(); });
   if (app.settings.notifs) scheduleNotifs();
+  updateToggleBtns();
+  if (app.settings.autoBrief && hasClaude() && app.settings.lastBrief !== todayKey()) {
+    app.settings.lastBrief = todayKey(); saveApp();
+    setTimeout(() => { if (typeof quickSend === 'function') quickSend('Kurzes Morgen-Briefing: Top 3 für heute und fällige Follow-ups. Halte es knapp.'); }, 900);
+  }
 }
 
 /* ===================== INIT ===================== */

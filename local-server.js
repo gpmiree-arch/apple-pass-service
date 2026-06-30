@@ -37,10 +37,11 @@ const server = http.createServer((req, res) => {
       try { parsed = JSON.parse(body || '{}'); } catch { parsed = {}; }
       const payload = {
         model: parsed.model || 'claude-sonnet-4-6',
-        max_tokens: parsed.max_tokens || 1000,
+        max_tokens: parsed.max_tokens || 1024,
         system: parsed.system,
-        messages: Array.isArray(parsed.messages) ? parsed.messages.slice(-8) : []
+        messages: Array.isArray(parsed.messages) ? parsed.messages : []
       };
+      if (Array.isArray(parsed.tools) && parsed.tools.length) payload.tools = parsed.tools;
       try {
         const up = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
