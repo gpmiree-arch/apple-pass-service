@@ -1121,6 +1121,7 @@
 <div class="view" id="view-agents">
   <div class="view-inner">
     <div class="view-head"><h2>🤖 KI-Agenten</h2><span class="muted" id="agents-note"></span></div>
+    <div class="card"><h3>⚡ Playbooks · Multi-Step</h3><p class="muted" style="margin-bottom:10px">Jarvis arbeitet einen ganzen Workflow über mehrere Tools ab — Ergebnis im Chat.</p><div class="view-actions" id="playbooks"></div></div>
     <div class="agent-grid" id="agent-grid"></div>
     <div class="card agent-output" id="agent-output" style="display:none"></div>
   </div>
@@ -1185,6 +1186,7 @@
       <div class="view-actions" style="margin-top:8px">
         <button class="btn-ghost" id="tts-toggle" onclick="toggleTts()">🔊 Sprachausgabe</button>
         <button class="btn-ghost" id="brief-toggle" onclick="toggleAutoBrief()">☀️ Auto-Briefing beim Start</button>
+        <button class="btn-ghost" id="autopilot-toggle" onclick="toggleAutoPilot()">⚡ Auto-Pilot</button>
       </div>
       <p class="muted" id="conn-status" style="margin-top:10px"></p>
     </div>
@@ -1877,6 +1879,7 @@ function quickSend(text) {
 /* ===================== QUICK ACTIONS ===================== */
 const quickActions = [
   { label: '☀️ Briefing', msg: 'Gib mir mein kurzes Morgen-Briefing: Top 3 für heute plus fällige Follow-ups.' },
+  { label: '⚡ Nächster Zug', msg: 'Was ist gerade mein nächster konkreter Zug? Ein Schritt, sofort umsetzbar.' },
   { label: '📊 Closes berechnen', msg: 'Wie viele Closes brauche ich diese Woche?' },
   { label: '⚠️ Kein Call heute', msg: 'Ich habe heute keinen Call gehabt. Was jetzt?' },
   { label: '⭐ Tag bewerten', msg: 'Bewerte meinen Tag.' },
@@ -1920,7 +1923,7 @@ function showWelcome() {
 /* ---------- App store ---------- */
 const APP_KEY = 'dia_app';
 function defaultApp() {
-  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0 }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '' } };
+  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0 }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '', autoPilot: false } };
 }
 function loadApp() {
   try { const d = JSON.parse(localStorage.getItem(APP_KEY) || 'null'); const base = defaultApp(); if (d) { Object.assign(base, d); base.settings = Object.assign(defaultApp().settings, d.settings || {}); base.focus = Object.assign(defaultApp().focus, d.focus || {}); } return base; }
@@ -1989,7 +1992,7 @@ function checkMilestones() {
   app.settings.lastMs = reached.length ? Math.max(last, Math.max.apply(null, reached)) : last; saveApp();
 }
 /* Called from existing bookRevenue() */
-function afterRevenue(amount) { logRevenue(amount); checkMilestones(); if (document.body.dataset.view === 'analytics') renderAnalytics(); }
+function afterRevenue(amount) { logRevenue(amount); checkMilestones(); if (document.body.dataset.view === 'analytics') renderAnalytics(); if (app.settings.autoPilot && hasClaude()) setTimeout(() => nextMove(false), 600); }
 
 /* ---------- Habits / streaks ---------- */
 function recordHabitsToday() {
@@ -2140,6 +2143,7 @@ const AGENTS = [
   { id: 'review', icon: '🌙', title: 'Tages-Review', desc: 'Analyse des Tages + Fokus für morgen.', needsInput: false, system: 'Du bist DIA Strategist. Analysiere ehrlich den heutigen Status (Score, Todos, Calls, DMs, Revenue). Was lief, was nicht, woran lag es wahrscheinlich? Nenne die 3 wichtigsten Fokuspunkte für morgen. Deutsch, kein leeres Lob.' }
 ];
 function renderAgents() {
+  renderPlaybooks();
   const el = document.getElementById('agent-grid'); if (!el) return;
   el.innerHTML = AGENTS.map(a => '<div class="agent-card" onclick="runAgent(\'' + a.id + '\')"><div class="agent-icon">' + a.icon + '</div><div class="agent-title">' + a.title + '</div><div class="agent-desc">' + a.desc + '</div></div>').join('');
   const note = document.getElementById('agents-note'); if (note) note.textContent = hasClaude() ? 'Claude verbunden ✓' : 'Demo: für echte Agenten Key eintragen (🧰 Tools → API-Key)';
@@ -2329,7 +2333,7 @@ async function agentLoop() {
   while (messages.length && messages[0].role !== 'user') messages.shift();
   if (!messages.length) messages = [{ role: 'user', content: '(start)' }];
   let acted = false;
-  for (let step = 0; step < 6; step++) {
+  for (let step = 0; step < 10; step++) {
     const resp = await anthropicCallFull(system, messages, JARVIS_TOOLS, 1200);
     const content = resp.content || [];
     if (resp.stop_reason === 'tool_use') {
@@ -2365,7 +2369,28 @@ function speak(text) {
 }
 function toggleTts() { app.settings.tts = !app.settings.tts; saveApp(); updateToggleBtns(); toast(app.settings.tts ? 'Sprachausgabe an' : 'Sprachausgabe aus'); if (app.settings.tts) speak('Jarvis bereit.'); }
 function toggleAutoBrief() { app.settings.autoBrief = !app.settings.autoBrief; saveApp(); updateToggleBtns(); toast(app.settings.autoBrief ? 'Auto-Briefing beim Start an' : 'Auto-Briefing aus'); }
-function updateToggleBtns() { const t = document.getElementById('tts-toggle'); if (t) t.style.opacity = app.settings.tts ? '1' : '.5'; const b = document.getElementById('brief-toggle'); if (b) b.style.opacity = app.settings.autoBrief ? '1' : '.5'; }
+function updateToggleBtns() { const t = document.getElementById('tts-toggle'); if (t) t.style.opacity = app.settings.tts ? '1' : '.5'; const b = document.getElementById('brief-toggle'); if (b) b.style.opacity = app.settings.autoBrief ? '1' : '.5'; const ap = document.getElementById('autopilot-toggle'); if (ap) ap.style.opacity = app.settings.autoPilot ? '1' : '.5'; }
+
+/* ---------- Playbooks (multi-step workflows) ---------- */
+const PLAYBOOKS = [
+  { label: '📅 Woche planen', msg: 'Plane meine Woche strategisch: lege mit add_task 3 konkrete Aufgaben in die Inbox (Lead-Gen, Calls, Content) und nenne mir kurz den Fokus pro Tag. Revenue-fokussiert, dann bestätige.' },
+  { label: '🎯 Lead-Gen-Sprint', msg: 'Starte einen Lead-Gen-Sprint: starte mit start_timer einen 25-Minuten Deep-Work-Timer und gib mir eine glasklare 25-Minuten-Aufgabe für 5 personalisierte DMs.' },
+  { label: '⏰ Follow-up-Runde', msg: 'Hol mit get_followups alle fälligen Follow-ups und schlage für jeden Lead den nächsten konkreten Schritt vor.' },
+  { label: '🌙 Tag abschließen', msg: 'Schließe meinen Tag ab: hol get_status, bewerte ehrlich (kein leeres Lob), merke dir mit remember die eine wichtigste Erkenntnis und lege mit add_task die Top-3-Aufgaben für morgen an.' },
+  { label: '📈 Pipeline-Check', msg: 'Analysiere mit get_status und list_leads meine Pipeline: reicht der Forecast fürs 100K-Ziel? Was ist der eine Hebel? Konkret und kurz.' }
+];
+function renderPlaybooks() { const el = document.getElementById('playbooks'); if (!el) return; el.innerHTML = PLAYBOOKS.map((p, i) => '<button class="btn-ghost" onclick="runPlaybook(' + i + ')">' + p.label + '</button>').join(''); }
+function runPlaybook(i) { const p = PLAYBOOKS[i]; if (!p) return; if (!hasClaude()) { toast('Playbooks brauchen echten Claude — Key in Tools eintragen'); return; } setView('mission'); if (window.innerWidth <= 900) setMobileView('right'); quickSend(p.msg); }
+
+/* ---------- Auto-Pilot ---------- */
+let nextMoveT = 0;
+function nextMove(force) {
+  if (!hasClaude()) { if (force) toast('Braucht echten Claude (Key in Tools)'); return; }
+  const now = Date.now(); if (!force && now - nextMoveT < 45000) return; nextMoveT = now;
+  setView('mission'); if (window.innerWidth <= 900) setMobileView('right');
+  quickSend('Was ist gerade mein nächster konkreter Zug? Ein Schritt, sofort umsetzbar — und führ ihn aus, wenn es sinnvoll ist.');
+}
+function toggleAutoPilot() { app.settings.autoPilot = !app.settings.autoPilot; saveApp(); updateToggleBtns(); toast(app.settings.autoPilot ? 'Auto-Pilot an — Jarvis schlägt nach Buchungen den nächsten Zug vor' : 'Auto-Pilot aus'); }
 
 /* ---------- Module init ---------- */
 function initModules() {
