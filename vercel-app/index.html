@@ -721,11 +721,34 @@
   @media (max-width: 1100px) {
     .grid { grid-template-columns: 240px 1fr 300px; }
   }
+  /* ===== MOBILE NAV (bottom switcher) ===== */
+  .mobile-nav { display: none; }
   @media (max-width: 900px) {
-    .grid { grid-template-columns: 1fr; }
-    .col-left, .col-right { display: none; }
+    .grid { grid-template-columns: 1fr; height: calc(100dvh - 140px); }
+    .col-left, .col-center, .col-right { display: none; border: none; padding-bottom: 64px; }
+    body[data-mview="left"]   .col-left   { display: block; }
+    body[data-mview="center"] .col-center { display: block; }
+    body[data-mview="right"]  .col-right  { display: flex; }
     .mission-bar { grid-template-columns: 1fr; gap: 4px; }
     .mb-center, .mb-right { display: none; }
+
+    .mobile-nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+      height: 56px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+    .mobile-nav button {
+      background: none; border: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      color: var(--muted); font-size: 18px;
+    }
+    .mobile-nav button span {
+      font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    }
+    .mobile-nav button.active { color: var(--gold); }
   }
 </style>
 </head>
@@ -909,6 +932,13 @@
 
 </div>
 
+<!-- ===== MOBILE NAV (nur < 900px sichtbar) ===== -->
+<div class="mobile-nav">
+  <button data-mview="left" onclick="setMobileView('left')">📍<span>Roadmap</span></button>
+  <button data-mview="center" class="active" onclick="setMobileView('center')">📅<span>Planer</span></button>
+  <button data-mview="right" onclick="setMobileView('right')">🤖<span>Chat</span></button>
+</div>
+
 <script>
 /* ===================== STATE ===================== */
 const state = {
@@ -961,7 +991,11 @@ Deine Rolle:
 - Tages-Score erklären: Revenue 40%, Gym+Run 25%, Outreach 20%, Content 15%
 - Beim Wochenmid-Check: Formel (Verdient ÷ Tage × 90) laut durchrechnen
 - Antworte auf Deutsch, max 4 Sätze, konkret und handlungsorientiert
-- Gib immer eine klare nächste Handlung vor, keine abstrakten Ratschläge`;
+- Gib immer eine klare nächste Handlung vor, keine abstrakten Ratschläge
+- Beziehe dich konkret auf den Tagesstatus unten: nenne offene Hebel beim Namen (Revenue, Outreach, Calls), statt nur Erledigtes zu loben
+
+AKTUELLER TAGESSTATUS (live, vom Dashboard):
+DAY_STATUS`;
 
 /* ===================== ROADMAP DATA ===================== */
 const roadmap = [
@@ -1341,7 +1375,8 @@ async function callClaude() {
   const system = AI_SYSTEM_PROMPT
     .replace('TOTAL_EARNED', state.totalEarned.toLocaleString('de-DE'))
     .replace('TODAY_EARNED', state.todayEarned.toLocaleString('de-DE'))
-    .replace('MISSION_DAY', String(state.missionDay));
+    .replace('MISSION_DAY', String(state.missionDay))
+    .replace('DAY_STATUS', buildDayStatus());
 
   const payload = {
     model: 'claude-sonnet-4-6',
@@ -1410,6 +1445,38 @@ async function runAI() {
     hideTyping();
     addMessage('assistant', 'Verbindungsfehler zum Proxy. Prüf die Proxy-URL (⚙️) oder deine Internetverbindung.');
   }
+}
+
+/* ===================== DAY STATUS (für KI-Kontext) ===================== */
+/* Baut eine kompakte Übersicht des heutigen Fortschritts, damit Claude die
+   To-Dos nachvollziehen kann (was erledigt, was offen). */
+function buildDayStatus() {
+  const s = calcScore();
+  const lines = [];
+  planner[0].forEach((item, idx) => {
+    if (item.type === 'section' || !item.todos) return;
+    let done = 0;
+    item.todos.forEach((t, ti) => {
+      const el = document.querySelector(`.todo[data-todo-key="0-${idx}-${ti}"]`);
+      if (el && el.classList.contains('checked')) done++;
+    });
+    const mark = done === item.todos.length ? '✓ erledigt' : (done > 0 ? '~ teils' : '◻ offen');
+    lines.push(`- ${item.title} (${done}/${item.todos.length}) ${mark}`);
+  });
+  return [
+    `Tag ${state.missionDay}/90 · Tages-Score ${s.total}/100`,
+    `Revenue ${Math.round(s.rev)}% · Gym+Run ${Math.round(s.health)}% · Outreach ${Math.round(s.outreach)}% · Content ${Math.round(s.content)}%`,
+    `Calls gebucht: ${state.callsBooked} · DM Outreach: ${state.dmCount} · Heute verdient: €${state.todayEarned.toLocaleString('de-DE')}`,
+    `Aufgaben heute:`,
+    ...lines
+  ].join('\n');
+}
+
+/* ===================== MOBILE VIEW ===================== */
+function setMobileView(v) {
+  document.body.setAttribute('data-mview', v);
+  document.querySelectorAll('.mobile-nav button').forEach(b =>
+    b.classList.toggle('active', b.dataset.mview === v));
 }
 
 /* ===================== PERSISTENCE ===================== */
@@ -1509,6 +1576,7 @@ function showWelcome() {
 
 /* ===================== INIT ===================== */
 function init() {
+  document.body.setAttribute('data-mview', 'center');
   const saved = loadState();
   renderRoadmap();
   renderBlocks(0);
