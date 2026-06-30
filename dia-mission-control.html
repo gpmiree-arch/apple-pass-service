@@ -921,7 +921,8 @@
         <div class="chat-name">DIA STRATEGIST</div>
         <div class="chat-status" id="chat-status">● online — antwortet sofort</div>
       </div>
-      <button class="quick-btn" onclick="setProxy()" title="KI-Backend / Proxy verbinden" style="padding:5px 9px">⚙️</button>
+      <button class="quick-btn" onclick="viewMemory()" title="Memory ansehen / bearbeiten" style="padding:5px 9px">🧠</button>
+      <button class="quick-btn" onclick="setProxy()" title="API-Key / Proxy verbinden" style="padding:5px 9px">⚙️</button>
     </div>
     <div class="chat-messages" id="chat-messages"></div>
     <div class="quick-actions" id="quick-actions"></div>
@@ -998,6 +999,10 @@ Deine Rolle:
 - Antworte auf Deutsch, max 4 Sätze, konkret und handlungsorientiert
 - Gib immer eine klare nächste Handlung vor, keine abstrakten Ratschläge
 - Beziehe dich konkret auf den Tagesstatus unten: nenne offene Hebel beim Namen (Revenue, Outreach, Calls), statt nur Erledigtes zu loben
+- Memory: Wenn du etwas Dauerhaftes über Gabriel lernst (Muster, laufende Deals, was funktioniert/nicht funktioniert, Vorlieben), hänge GANZ ANS ENDE deiner Antwort eine Zeile pro Fakt an, exakt im Format: [MEMORY] <kurzer Fakt>. Nur wirklich Dauerhaftes, kein Tagesrauschen. Nichts Neues = keine [MEMORY]-Zeile. Diese Zeilen sieht Gabriel nicht.
+
+WAS DU DIR ÜBER GABRIEL GEMERKT HAST:
+MEMORY_BLOCK
 
 AKTUELLER TAGESSTATUS (live, vom Dashboard):
 DAY_STATUS`;
@@ -1381,6 +1386,7 @@ async function callClaude() {
     .replace('TOTAL_EARNED', state.totalEarned.toLocaleString('de-DE'))
     .replace('TODAY_EARNED', state.todayEarned.toLocaleString('de-DE'))
     .replace('MISSION_DAY', String(state.missionDay))
+    .replace('MEMORY_BLOCK', buildMemory())
     .replace('DAY_STATUS', buildDayStatus());
 
   const payload = {
@@ -1447,8 +1453,9 @@ async function runAI() {
   showTyping();
   try {
     const hasReal = CHAT_ENDPOINT || (localStorage.getItem('dia_key') || '').trim();
-    const reply = hasReal ? await callClaude() : await localStrategistReply();
+    const raw = hasReal ? await callClaude() : await localStrategistReply();
     hideTyping();
+    const reply = extractMemory(raw);
     state.chatHistory.push({ role: 'assistant', content: reply });
     addMessage('assistant', mdInline(reply));
     saveState();
@@ -1481,6 +1488,42 @@ function buildDayStatus() {
     `Aufgaben heute:`,
     ...lines
   ].join('\n');
+}
+
+/* ===================== MEMORY (halb-automatisch) ===================== */
+/* Der Strategist hängt dauerhafte Erkenntnisse als "[MEMORY] ..."-Zeilen an.
+   Die werden hier extrahiert, lokal gespeichert und bei jeder Anfrage wieder
+   in den Prompt gegeben — so "erinnert" er sich über Tage/Wochen. */
+function getMemory() {
+  try { return JSON.parse(localStorage.getItem('dia_memory') || '[]'); }
+  catch (e) { return []; }
+}
+function buildMemory() {
+  const m = getMemory();
+  return m.length ? m.map(x => '- ' + x).join('\n') : '(noch nichts gemerkt)';
+}
+function extractMemory(text) {
+  const facts = [];
+  let cleaned = text.replace(/^[ \t]*\[MEMORY\][ \t:]*(.+)$/gim, (_, f) => { facts.push(f.trim()); return ''; });
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  if (facts.length) {
+    const mem = getMemory();
+    facts.forEach(f => { if (f && !mem.includes(f)) mem.push(f); });
+    while (mem.length > 25) mem.shift();
+    localStorage.setItem('dia_memory', JSON.stringify(mem));
+  }
+  return cleaned || text.trim();
+}
+function viewMemory() {
+  const mem = getMemory();
+  const edited = prompt(
+    '🧠 Was sich dein Strategist gemerkt hat (eine Zeile = ein Fakt).\n' +
+    'Bearbeiten, oder Feld leeren = zurücksetzen:',
+    mem.join('\n')
+  );
+  if (edited === null) return;
+  const arr = edited.split('\n').map(s => s.trim()).filter(Boolean);
+  localStorage.setItem('dia_memory', JSON.stringify(arr));
 }
 
 /* ===================== MOBILE VIEW ===================== */
