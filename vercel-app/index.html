@@ -846,6 +846,27 @@
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--gold-dim); color: var(--white); padding: 12px 18px; border-radius: 10px; z-index: 120; font-size: 13px; box-shadow: 0 6px 24px rgba(0,0,0,.5); opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
   #mic-btn.rec { background: var(--red) !important; color: #fff !important; animation: pulse 1.2s infinite; }
+  .block.now { border-color: var(--gold) !important; box-shadow: 0 0 0 1px var(--gold-dim) inset; }
+  .block.now .block-time { color: var(--gold); }
+  .plan-item { display: grid; grid-template-columns: 60px 1fr auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border-left: 3px solid var(--border); }
+  .plan-item.now { border-left-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim) inset; }
+  .plan-item.done { opacity: .55; }
+  .plan-item.done .pi-title { text-decoration: line-through; }
+  .plan-item.overdue { border-left-color: var(--red); }
+  .pi-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.3; }
+  .plan-item.now .pi-time { color: var(--gold); }
+  .pi-title { font-family: 'Oswald', sans-serif; font-size: 14px; color: var(--white); }
+  .pi-status { font-size: 9px; font-family: 'JetBrains Mono', monospace; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+  .pi-status.now { background: var(--gold-glow); color: var(--gold); }
+  .pi-status.overdue { background: rgba(244,63,94,.15); color: var(--red); }
+  .pi-status.upcoming { background: var(--surface3); color: var(--muted); }
+  .pi-status.done { background: rgba(62,207,142,.15); color: var(--green); }
+  .routine { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .routine:last-child { border-bottom: none; }
+  .toggle { width: 38px; height: 20px; border-radius: 10px; background: var(--surface3); border: 1px solid var(--border); position: relative; cursor: pointer; flex-shrink: 0; }
+  .toggle.on { background: var(--gold-dim); border-color: var(--gold); }
+  .toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); top: 2px; left: 2px; transition: left .15s, background .15s; }
+  .toggle.on::after { left: 20px; background: var(--gold); }
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 115; }
   .confetti-piece { position: fixed; width: 9px; height: 9px; will-change: transform, opacity; }
 
@@ -920,6 +941,7 @@
 <!-- ===== VIEW NAV ===== -->
 <div class="viewnav" id="viewnav">
   <button class="vnav-btn active" data-view="mission" onclick="setView('mission')">🎯 Mission</button>
+  <button class="vnav-btn" data-view="plan" onclick="setView('plan')">🗓️ Plan</button>
   <button class="vnav-btn" data-view="crm" onclick="setView('crm')">📇 CRM <span class="vnav-badge" id="crm-badge"></span></button>
   <button class="vnav-btn" data-view="analytics" onclick="setView('analytics')">📈 Analytics</button>
   <button class="vnav-btn" data-view="agents" onclick="setView('agents')">🤖 Agenten</button>
@@ -1078,6 +1100,22 @@
 
 </div>
 
+<!-- ===== PLAN VIEW (dynamischer Tagesplan) ===== -->
+<div class="view" id="view-plan">
+  <div class="view-inner">
+    <div class="view-head">
+      <h2>🗓️ Dynamischer Tagesplan</h2>
+      <div class="view-actions">
+        <span class="forecast-pill" id="plan-focus">Fokus heute: 0 min</span>
+        <button class="btn-ghost" onclick="addPlanItem()">+ Block</button>
+        <button class="btn-gold" onclick="reflowPlan()">⚡ Neu takten</button>
+      </div>
+    </div>
+    <p class="muted" id="plan-note" style="margin-bottom:12px"></p>
+    <div id="plan-list"></div>
+  </div>
+</div>
+
 <!-- ===== CRM VIEW ===== -->
 <div class="view" id="view-crm">
   <div class="view-inner">
@@ -1147,6 +1185,11 @@
     </div>
     <div class="card"><h3>🔥 Streaks</h3><div class="streak-row" id="streaks"></div></div>
     <div class="card"><h3>🏁 Milestones</h3><div id="milestones"></div></div>
+    <div class="card">
+      <h3>🔁 Auto-Routinen</h3>
+      <p class="muted" style="margin-bottom:10px">Jarvis fährt diese Routinen automatisch, solange die App offen ist.</p>
+      <div id="routines-list"></div>
+    </div>
     <div class="card">
       <h3>🔔 Block-Erinnerungen</h3>
       <p class="muted" style="margin-bottom:10px">Browser-Benachrichtigungen zu den heutigen Zeitblöcken (Gym, Calls, Deep Work …).</p>
@@ -1465,7 +1508,7 @@ function renderBlocks(tabIndex) {
         <div class="todo-box"></div>
         <div class="todo-text">${t}</div>
       </div>`).join('')}</div>` : '';
-    return `<div class="block ${item.type}">
+    return `<div class="block ${item.type}" data-time="${item.time}">
       <div class="block-time">${item.time}</div>
       <div>
         <div class="block-title">${item.title}</div>
@@ -1923,7 +1966,7 @@ function showWelcome() {
 /* ---------- App store ---------- */
 const APP_KEY = 'dia_app';
 function defaultApp() {
-  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0 }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '', autoPilot: false } };
+  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0, byDate: {} }, plan: null, routines: { enabled: {}, fired: {}, lastNudgeHour: -1 }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '', autoPilot: false } };
 }
 function loadApp() {
   try { const d = JSON.parse(localStorage.getItem(APP_KEY) || 'null'); const base = defaultApp(); if (d) { Object.assign(base, d); base.settings = Object.assign(defaultApp().settings, d.settings || {}); base.focus = Object.assign(defaultApp().focus, d.focus || {}); } return base; }
@@ -1976,6 +2019,8 @@ function setView(name) {
   else if (name === 'agents') renderAgents();
   else if (name === 'focus') renderFocus();
   else if (name === 'tools') renderTools();
+  else if (name === 'plan') renderPlan();
+  else if (name === 'mission') highlightNow();
 }
 
 /* ---------- Modal ---------- */
@@ -2184,7 +2229,7 @@ function pomoTick() {
   pomoRemain--;
   if (pomoRemain <= 0) {
     clearInterval(pomoTimer); pomoRunning = false; const t = document.getElementById('pomo-toggle'); if (t) t.textContent = 'Start';
-    app.focus.count = (app.focus.count || 0) + 1; app.focus.totalMin = (app.focus.totalMin || 0) + pomoLen(); saveApp();
+    app.focus.count = (app.focus.count || 0) + 1; app.focus.totalMin = (app.focus.totalMin || 0) + pomoLen(); app.focus.byDate = app.focus.byDate || {}; app.focus.byDate[todayKey()] = (app.focus.byDate[todayKey()] || 0) + pomoLen(); saveApp();
     confetti(); toast('🎯 Deep-Work Session fertig!');
     if (app.settings.notifs && 'Notification' in window && Notification.permission === 'granted') { try { new Notification('DIA · Fokus fertig', { body: 'Session abgeschlossen. Kurze Pause, dann nächster Block.' }); } catch (e) {} }
     pomoRemain = pomoLen() * 60; renderFocus();
@@ -2193,8 +2238,8 @@ function pomoTick() {
 }
 function pomoReset() { clearInterval(pomoTimer); pomoRunning = false; const t = document.getElementById('pomo-toggle'); if (t) t.textContent = 'Start'; pomoRemain = pomoLen() * 60; pomoRender(); }
 function renderFocus() {
-  renderStreaks(); renderMilestones(); updateNotifBtn();
-  const ps = document.getElementById('pomo-stat'); if (ps) ps.textContent = (app.focus.count || 0) + ' Sessions · ' + (app.focus.totalMin || 0) + ' min fokussiert';
+  renderStreaks(); renderMilestones(); updateNotifBtn(); renderRoutines();
+  const ps = document.getElementById('pomo-stat'); if (ps) ps.textContent = (app.focus.count || 0) + ' Sessions · ' + focusToday() + ' min heute · ' + (app.focus.totalMin || 0) + ' min gesamt';
 }
 function renderStreaks() {
   const el = document.getElementById('streaks'); if (!el) return;
@@ -2278,7 +2323,11 @@ const JARVIS_TOOLS = [
   { name: 'add_kpi', description: 'Speichert Tages-KPIs (CPL, Close-Rate %, Ad-Spend, ROAS).', input_schema: { type: 'object', properties: { cpl: { type: 'number' }, close_rate: { type: 'number' }, ad_spend: { type: 'number' }, roas: { type: 'number' } } } },
   { name: 'start_timer', description: 'Startet den Deep-Work-Timer (Standard 25 min).', input_schema: { type: 'object', properties: { minutes: { type: 'number' } } } },
   { name: 'navigate', description: 'Öffnet eine Ansicht: mission|crm|analytics|agents|focus|tools.', input_schema: { type: 'object', properties: { view: { type: 'string' } }, required: ['view'] } },
-  { name: 'remember', description: 'Merkt sich einen dauerhaften Fakt über Gabriel.', input_schema: { type: 'object', properties: { fact: { type: 'string' } }, required: ['fact'] } }
+  { name: 'remember', description: 'Merkt sich einen dauerhaften Fakt über Gabriel.', input_schema: { type: 'object', properties: { fact: { type: 'string' } }, required: ['fact'] } },
+  { name: 'get_plan', description: 'Liefert den heutigen dynamischen Tagesplan mit Status.', input_schema: { type: 'object', properties: {} } },
+  { name: 'add_plan_item', description: 'Fügt dem Tagesplan einen Zeitblock hinzu.', input_schema: { type: 'object', properties: { title: { type: 'string' }, time: { type: 'string', description: 'HH:MM' }, minutes: { type: 'number' } }, required: ['title'] } },
+  { name: 'complete_plan_item', description: 'Markiert einen Tagesplan-Block als erledigt (per Titel oder ID).', input_schema: { type: 'object', properties: { title_or_id: { type: 'string' } }, required: ['title_or_id'] } },
+  { name: 'replan_day', description: 'Taktet die offenen Blöcke des Tagesplans ab jetzt neu.', input_schema: { type: 'object', properties: {} } }
 ];
 
 function normStage(s) { if (!s) return 'neu'; s = ('' + s).toLowerCase().trim(); const m = { neu: 'neu', new: 'neu', kontaktiert: 'kontaktiert', contacted: 'kontaktiert', call: 'call', 'call gebucht': 'call', angebot: 'angebot', proposal: 'angebot', offer: 'angebot', gewonnen: 'gewonnen', won: 'gewonnen', verloren: 'verloren', lost: 'verloren' }; return m[s] || (STAGES.find(x => x.id === s) ? s : 'neu'); }
@@ -2302,6 +2351,10 @@ function executeTool(name, a) {
     case 'start_timer': { const m = Math.max(1, Math.round(+a.minutes || 25)); pomoRemain = m * 60; setView('focus'); pomoRender(); if (!pomoRunning) pomoToggle(); return 'Deep-Work Timer gestartet: ' + m + ' min.'; }
     case 'navigate': { const v = ('' + (a.view || '')).toLowerCase(); const map = { mission: 'mission', crm: 'crm', analytics: 'analytics', analyse: 'analytics', agents: 'agents', agenten: 'agents', focus: 'focus', fokus: 'focus', tools: 'tools' }; if (map[v]) { setView(map[v]); return 'Geöffnet: ' + map[v]; } return 'Unbekannte Ansicht.'; }
     case 'remember': { if (!a.fact) return 'Kein Fakt.'; const mem = getMemory(); if (!mem.includes(a.fact)) { mem.push(a.fact); while (mem.length > 25) mem.shift(); localStorage.setItem('dia_memory', JSON.stringify(mem)); } return 'Gemerkt: ' + a.fact; }
+    case 'get_plan': { ensurePlan(); return app.plan.items.slice().sort((x, y) => x.start - y.start).map(i => minToHm(i.start) + ' (' + i.dur + 'm) ' + i.title + ' — ' + planItemStatus(i)).join('\n'); }
+    case 'add_plan_item': { ensurePlan(); const s = hmToMin(a.time); app.plan.items.push({ id: uid(), start: s == null ? nowMin() : s, dur: Math.round(+a.minutes || 60), title: a.title || 'Block', type: 'deep', done: false }); saveApp(); if (document.body.dataset.view === 'plan') renderPlan(); return 'Block geplant: ' + (a.title || 'Block') + ' um ' + (a.time || minToHm(nowMin())) + '.'; }
+    case 'complete_plan_item': { ensurePlan(); const it = app.plan.items.find(x => x.id === a.title_or_id) || app.plan.items.find(x => (x.title || '').toLowerCase().includes(('' + a.title_or_id).toLowerCase())); if (!it) return 'Block nicht gefunden.'; it.done = true; saveApp(); if (document.body.dataset.view === 'plan') renderPlan(); return 'Erledigt: ' + it.title; }
+    case 'replan_day': { reflowPlan(); return 'Tag neu getaktet ab ' + minToHm(nowMin()) + '.'; }
     default: return 'Unbekanntes Tool: ' + name;
   }
 }
@@ -2392,6 +2445,119 @@ function nextMove(force) {
 }
 function toggleAutoPilot() { app.settings.autoPilot = !app.settings.autoPilot; saveApp(); updateToggleBtns(); toast(app.settings.autoPilot ? 'Auto-Pilot an — Jarvis schlägt nach Buchungen den nächsten Zug vor' : 'Auto-Pilot aus'); }
 
+/* ============================================================= *
+ *  FOCUS TIMES · DYNAMIC DAY PLAN · AUTO-ROUTINES               *
+ * ============================================================= */
+function hmToMin(s) { const m = ('' + s).match(/(\d{1,2}):(\d{2})/); return m ? (+m[1] * 60 + +m[2]) : null; }
+function minToHm(t) { t = Math.max(0, Math.round(t)); return String(Math.floor(t / 60) % 24).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); }
+function nowMin() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+function parseRange(s) { const parts = ('' + s).split(/[–—-]/); const a = hmToMin(parts[0]); const b = parts[1] ? hmToMin(parts[1]) : null; return { start: a, end: b }; }
+function focusToday() { return (app.focus && app.focus.byDate && app.focus.byDate[todayKey()]) || 0; }
+
+/* ----- Live "JETZT" highlight on the Mission planner ----- */
+function highlightNow() {
+  const n = nowMin();
+  document.querySelectorAll('#blocks-0 .block').forEach(b => {
+    const r = parseRange(b.dataset.time || '');
+    const on = r.start != null && r.end != null && n >= r.start && n < r.end;
+    b.classList.toggle('now', on);
+  });
+}
+
+/* ----- Dynamic day plan ----- */
+function ensurePlan() {
+  if (!app.plan || app.plan.date !== todayKey()) {
+    const items = [];
+    planner[0].forEach(it => {
+      if (it.type === 'section' || !it.time) return;
+      const r = parseRange(it.time); if (r.start == null) return;
+      const dur = (r.end != null && r.end > r.start) ? r.end - r.start : 60;
+      items.push({ id: uid(), start: r.start, dur, title: it.title, type: it.type, done: false });
+    });
+    app.plan = { date: todayKey(), items }; saveApp();
+  }
+}
+function planItemStatus(it) { if (it.done) return 'done'; const n = nowMin(); if (n >= it.start + it.dur) return 'overdue'; if (n >= it.start) return 'now'; return 'upcoming'; }
+function renderPlan() {
+  ensurePlan();
+  const el = document.getElementById('plan-list'); if (!el) return;
+  const items = app.plan.items.slice().sort((a, b) => a.start - b.start);
+  const lbl = { done: 'erledigt', now: 'JETZT', overdue: 'überfällig', upcoming: 'gleich' };
+  el.innerHTML = items.map(it => {
+    const st = planItemStatus(it);
+    return '<div class="plan-item ' + st + '">' +
+      '<div class="pi-time">' + minToHm(it.start) + '<br><span style="opacity:.6">' + it.dur + 'm</span></div>' +
+      '<div class="pi-title">' + escAttr(it.title) + '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center"><span class="pi-status ' + st + '">' + lbl[st] + '</span>' +
+      '<button class="icon-btn" onclick="togglePlanItem(\'' + it.id + '\')">' + (it.done ? '↩' : '✓') + '</button>' +
+      '<button class="icon-btn" onclick="delPlanItem(\'' + it.id + '\')">✕</button></div></div>';
+  }).join('') || '<p class="muted">Kein Plan. Auf „+ Block" tippen.</p>';
+  const ft = document.getElementById('plan-focus'); if (ft) ft.textContent = 'Fokus heute: ' + focusToday() + ' min';
+  const note = document.getElementById('plan-note');
+  if (note) { const od = items.filter(i => planItemStatus(i) === 'overdue' && !i.done).length; note.innerHTML = od ? '<span style="color:var(--red)">' + od + ' Block(s) überfällig.</span> „⚡ Neu takten" verteilt die offenen Blöcke ab jetzt neu.' : 'Live nach Uhrzeit. „⚡ Neu takten" reflowt offene Blöcke ab jetzt.'; }
+}
+function togglePlanItem(id) { ensurePlan(); const it = app.plan.items.find(x => x.id === id); if (!it) return; it.done = !it.done; saveApp(); renderPlan(); }
+function delPlanItem(id) { ensurePlan(); app.plan.items = app.plan.items.filter(x => x.id !== id); saveApp(); renderPlan(); }
+function addPlanItem() {
+  openModal('<h3>Block hinzufügen</h3><label>Titel</label><input class="fld" id="pi-title" placeholder="z. B. Sales Calls"><label>Start (HH:MM)</label><input class="fld" id="pi-start" value="' + minToHm(Math.ceil(nowMin() / 15) * 15) + '"><label>Dauer (Minuten)</label><input class="fld" id="pi-dur" type="number" value="60"><div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn-gold" onclick="savePlanItem()">Hinzufügen</button></div>');
+  setTimeout(() => { const t = document.getElementById('pi-title'); if (t) t.focus(); }, 50);
+}
+function savePlanItem() {
+  ensurePlan();
+  const t = document.getElementById('pi-title').value.trim() || 'Block';
+  const s = hmToMin(document.getElementById('pi-start').value);
+  const d = +document.getElementById('pi-dur').value || 60;
+  app.plan.items.push({ id: uid(), start: s == null ? nowMin() : s, dur: d, title: t, type: 'deep', done: false });
+  saveApp(); closeModal(); renderPlan();
+}
+function reflowPlan() {
+  ensurePlan();
+  const undone = app.plan.items.filter(i => !i.done).sort((a, b) => a.start - b.start);
+  let cursor = nowMin();
+  undone.forEach(i => { i.start = cursor; cursor += i.dur; });
+  saveApp(); renderPlan(); toast('Plan neu getaktet ab ' + minToHm(nowMin()));
+}
+
+/* ----- Auto-routines ----- */
+const ROUTINE_DEFS = [
+  { id: 'briefing', label: '☀️ Morgen-Briefing', time: '07:00', desc: 'Top 3 + fällige Follow-ups' },
+  { id: 'midday', label: '🌤️ Mittags-Check', time: '12:30', desc: 'Pipeline & Pace prüfen' },
+  { id: 'review', label: '🌙 Abend-Review', time: '18:30', desc: 'Tag bewerten + morgen planen' },
+  { id: 'nudge', label: '⏱️ Stündlicher Nudge', time: null, desc: 'Anstoß, wenn hinter Tagesziel' }
+];
+function ensureRoutines() { if (!app.routines) app.routines = { enabled: {}, fired: {}, lastNudgeHour: -1 }; app.routines.enabled = app.routines.enabled || {}; app.routines.fired = app.routines.fired || {}; }
+function renderRoutines() {
+  ensureRoutines();
+  const el = document.getElementById('routines-list'); if (!el) return;
+  el.innerHTML = ROUTINE_DEFS.map(r => '<div class="routine"><div><div style="font-size:13px;color:var(--white)">' + r.label + (r.time ? ' · ' + r.time : '') + '</div><div class="muted" style="font-size:11px">' + r.desc + '</div></div><div class="toggle ' + (app.routines.enabled[r.id] ? 'on' : '') + '" onclick="toggleRoutine(\'' + r.id + '\')"></div></div>').join('');
+}
+function toggleRoutine(id) { ensureRoutines(); app.routines.enabled[id] = !app.routines.enabled[id]; saveApp(); renderRoutines(); toast(app.routines.enabled[id] ? 'Routine aktiv' : 'Routine aus'); }
+function fireRoutine(id) {
+  if (id === 'briefing') { if (hasClaude()) quickSend('Morgen-Briefing: Top 3 für heute und fällige Follow-ups. Knapp.'); else toast('☀️ Morgen-Briefing (Key fehlt für KI)'); }
+  else if (id === 'midday') { if (hasClaude()) quickSend('Mittags-Check: bin ich auf Pace fürs Tagesziel? Was ist der eine Hebel für den Nachmittag? Kurz.'); else toast('🌤️ Mittags-Check'); }
+  else if (id === 'review') { if (hasClaude()) quickSend('Abend-Review: bewerte meinen Tag ehrlich, merke mit remember 1 Erkenntnis und nenne die Top-3 für morgen.'); else toast('🌙 Abend-Review'); }
+}
+function checkRoutines() {
+  ensureRoutines();
+  const today = todayKey(), n = nowMin();
+  ROUTINE_DEFS.forEach(r => {
+    if (!app.routines.enabled[r.id]) return;
+    if (r.id === 'nudge') {
+      const hr = new Date().getHours();
+      if (hr >= 8 && hr <= 20 && app.routines.lastNudgeHour !== hr) {
+        const dayFrac = Math.min(1, Math.max(0, (n - 300) / (1200 - 300)));
+        const target = DAILY_TARGET * Math.max(0, missionDayNow() - 1) + DAILY_TARGET * dayFrac;
+        app.routines.lastNudgeHour = hr; saveApp();
+        if (state.totalEarned < target) { if (app.settings.autoPilot && hasClaude()) nextMove(true); else toast('⏱️ Hinter Tagesziel — Zeit für den nächsten Zug.'); }
+      }
+      return;
+    }
+    const rm = hmToMin(r.time); if (rm == null) return;
+    if (n >= rm && (n - rm) < 6 && app.routines.fired[r.id] !== today) { app.routines.fired[r.id] = today; saveApp(); fireRoutine(r.id); }
+  });
+}
+function tickMinute() { try { highlightNow(); if (document.body.dataset.view === 'plan') renderPlan(); checkRoutines(); } catch (e) {} }
+
 /* ---------- Module init ---------- */
 function initModules() {
   if (!app.settings.startDate) { app.settings.startDate = todayKey(); saveApp(); }
@@ -2411,6 +2577,9 @@ function initModules() {
     app.settings.lastBrief = todayKey(); saveApp();
     setTimeout(() => { if (typeof quickSend === 'function') quickSend('Kurzes Morgen-Briefing: Top 3 für heute und fällige Follow-ups. Halte es knapp.'); }, 900);
   }
+  ensurePlan();
+  setTimeout(highlightNow, 300);
+  setInterval(tickMinute, 30000);
 }
 
 /* ===================== INIT ===================== */
