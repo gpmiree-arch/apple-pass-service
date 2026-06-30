@@ -1385,13 +1385,18 @@ async function callClaude() {
     messages: state.chatHistory.slice(-8)
   };
 
-  // Proxy path keeps the key server-side; direct path only works behind a
-  // key-injecting proxy and needs the extra Anthropic browser headers.
-  const endpoint = CHAT_ENDPOINT || 'https://api.anthropic.com/v1/messages';
+  // Two ways to reach Claude:
+  //  1) CHAT_ENDPOINT (server-side proxy) — key stays on the server.
+  //  2) Direct browser call with a personal key from localStorage ('dia_key').
+  //     The key lives only in this browser, never in a file or in git.
+  const localKey = (localStorage.getItem('dia_key') || '').trim();
+  let endpoint = CHAT_ENDPOINT;
   const headers = { 'Content-Type': 'application/json' };
   if (!CHAT_ENDPOINT) {
+    endpoint = 'https://api.anthropic.com/v1/messages';
     headers['anthropic-version'] = '2023-06-01';
     headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    if (localKey) headers['x-api-key'] = localKey;
   }
 
   const response = await fetch(endpoint, {
@@ -1436,14 +1441,15 @@ function localStrategistReply() {
 async function runAI() {
   showTyping();
   try {
-    const reply = CHAT_ENDPOINT ? await callClaude() : await localStrategistReply();
+    const hasReal = CHAT_ENDPOINT || (localStorage.getItem('dia_key') || '').trim();
+    const reply = hasReal ? await callClaude() : await localStrategistReply();
     hideTyping();
     state.chatHistory.push({ role: 'assistant', content: reply });
     addMessage('assistant', mdInline(reply));
     saveState();
   } catch (e) {
     hideTyping();
-    addMessage('assistant', 'Verbindungsfehler zum Proxy. Prüf die Proxy-URL (⚙️) oder deine Internetverbindung.');
+    addMessage('assistant', 'Verbindungsfehler. Prüf deinen API-Key (⚙️) oder deine Internetverbindung.');
   }
 }
 
@@ -1513,11 +1519,19 @@ function loadState() {
 }
 
 function setProxy() {
-  const cur = localStorage.getItem('dia_proxy') || '';
-  const url = prompt('KI-Backend / Proxy-URL (leer = Demo-Modus):', cur);
-  if (url === null) return;
-  if (url.trim()) localStorage.setItem('dia_proxy', url.trim());
-  else localStorage.removeItem('dia_proxy');
+  const cur = (localStorage.getItem('dia_key') || localStorage.getItem('dia_proxy') || '');
+  const val = prompt(
+    'Claude API-Key (sk-ant-…) hier einfügen für echten Chat.\n' +
+    '(Alternativ eine Proxy-URL. Leer = Demo-Modus.)\n\n' +
+    'Dein Key bleibt nur in diesem Browser — nie in einer Datei oder auf GitHub.',
+    cur
+  );
+  if (val === null) return;
+  const v = val.trim();
+  localStorage.removeItem('dia_key');
+  localStorage.removeItem('dia_proxy');
+  if (v.startsWith('sk-ant')) localStorage.setItem('dia_key', v);
+  else if (v) localStorage.setItem('dia_proxy', v);
   location.reload();
 }
 
@@ -1600,8 +1614,9 @@ function init() {
   setActiveStep(saved && saved.activeStep ? saved.activeStep : '0-0');
 
   // Chat status reflects demo vs live
+  const hasKey = (localStorage.getItem('dia_key') || '').trim();
   document.getElementById('chat-status').textContent =
-    CHAT_ENDPOINT ? '● online — Claude verbunden' : '● Demo-Modus — ⚙️ für echte KI';
+    (CHAT_ENDPOINT || hasKey) ? '● online — Claude verbunden' : '● Demo-Modus — ⚙️ Key eintragen';
 
   // Restore chat history, or show welcome on first run
   if (saved && saved.chatHistory && saved.chatHistory.length) {
