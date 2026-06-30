@@ -861,6 +861,36 @@
   .pi-status.overdue { background: rgba(244,63,94,.15); color: var(--red); }
   .pi-status.upcoming { background: var(--surface3); color: var(--muted); }
   .pi-status.done { background: rgba(62,207,142,.15); color: var(--green); }
+  /* ===== COCKPIT ===== */
+  .cockpit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; cursor: pointer; transition: border-color .15s, transform .1s; }
+  .tile:hover { border-color: var(--gold-dim); transform: translateY(-2px); }
+  .tile.flat { cursor: default; }
+  .tile.flat:hover { transform: none; border-color: var(--border); }
+  .tile h4 { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .tile .big { font-family: 'JetBrains Mono', monospace; font-size: 26px; color: var(--white); line-height: 1.1; }
+  .tile .big.gold { color: var(--gold); } .tile .big.green { color: var(--green); } .tile .big.red { color: var(--red); }
+  .tile .sub { font-size: 11px; color: var(--muted); margin-top: 5px; font-family: 'JetBrains Mono', monospace; }
+  .tile .line { font-size: 12.5px; color: var(--white); padding: 2px 0; }
+
+  /* ===== JARVIS CONSOLE ===== */
+  .jarvis-wrap { display: grid; grid-template-columns: 250px 1fr; gap: 16px; height: calc(100vh - 184px - 90px); }
+  .jarvis-side { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  .jarvis-side .card h3 { margin-bottom: 8px; }
+  .jarvis-main { display: flex; flex-direction: column; min-height: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .jarvis-feedwrap { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .jarvis-inrow { display: flex; gap: 8px; align-items: flex-end; padding: 12px; border-top: 1px solid var(--border); }
+  .jarvis-qa { display: flex; flex-wrap: wrap; gap: 6px; }
+  .jarvis-qa .btn-ghost { font-size: 11px; padding: 6px 9px; }
+
+  /* ===== CALENDAR ===== */
+  .cal-day { margin-bottom: 18px; }
+  .cal-day h4 { font-family: 'Oswald', sans-serif; color: var(--gold); font-size: 12px; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
+  .cal-event { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+  .cal-event .t { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--blue); }
+  .cal-event .s { font-family: 'Oswald', sans-serif; font-size: 13px; color: var(--white); }
+  @media (max-width: 900px) { .jarvis-wrap { grid-template-columns: 1fr; height: auto; } .jarvis-side { flex-direction: row; flex-wrap: wrap; } .jarvis-side .card { flex: 1; min-width: 160px; } .jarvis-main { height: calc(100dvh - 320px); min-height: 360px; } }
+
   .routine { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
   .routine:last-child { border-bottom: none; }
   .toggle { width: 38px; height: 20px; border-radius: 10px; background: var(--surface3); border: 1px solid var(--border); position: relative; cursor: pointer; flex-shrink: 0; }
@@ -941,7 +971,10 @@
 <!-- ===== VIEW NAV ===== -->
 <div class="viewnav" id="viewnav">
   <button class="vnav-btn active" data-view="mission" onclick="setView('mission')">🎯 Mission</button>
+  <button class="vnav-btn" data-view="cockpit" onclick="setView('cockpit')">🧭 Cockpit</button>
+  <button class="vnav-btn" data-view="jarvis" onclick="setView('jarvis')">🤖 Jarvis</button>
   <button class="vnav-btn" data-view="plan" onclick="setView('plan')">🗓️ Plan</button>
+  <button class="vnav-btn" data-view="calendar" onclick="setView('calendar')">📅 Kalender</button>
   <button class="vnav-btn" data-view="crm" onclick="setView('crm')">📇 CRM <span class="vnav-badge" id="crm-badge"></span></button>
   <button class="vnav-btn" data-view="analytics" onclick="setView('analytics')">📈 Analytics</button>
   <button class="vnav-btn" data-view="agents" onclick="setView('agents')">🤖 Agenten</button>
@@ -1098,6 +1131,62 @@
     </div>
   </div>
 
+</div>
+
+<!-- ===== COCKPIT VIEW ===== -->
+<div class="view" id="view-cockpit">
+  <div class="view-inner">
+    <div class="view-head"><h2>🧭 Cockpit</h2><div class="view-actions"><button class="btn-ghost" onclick="renderCockpit()">↻ Aktualisieren</button></div></div>
+    <div class="cockpit-grid" id="cockpit-grid"></div>
+  </div>
+</div>
+
+<!-- ===== JARVIS CONSOLE VIEW ===== -->
+<div class="view" id="view-jarvis">
+  <div class="view-inner" style="max-width:1180px">
+    <div class="view-head">
+      <h2>🤖 Jarvis Konsole</h2>
+      <div class="view-actions">
+        <span class="muted" id="jarvis-status2"></span>
+        <button class="btn-ghost" onclick="jarvisNewChat()">＋ Neuer Chat</button>
+        <button class="btn-ghost" onclick="viewMemory()">🧠 Memory</button>
+        <button class="btn-ghost" onclick="setProxy()">🔑 Key</button>
+      </div>
+    </div>
+    <div class="jarvis-wrap">
+      <div class="jarvis-side">
+        <div class="card" style="margin:0"><h3>⚡ Playbooks</h3><div class="jarvis-qa" id="jarvis-playbooks"></div></div>
+        <div class="card" style="margin:0"><h3>Schnellbefehle</h3><div class="jarvis-qa" id="jarvis-quick"></div></div>
+        <div class="card" style="margin:0"><h3>Jarvis kann u. a.</h3><div id="jarvis-caps"></div></div>
+      </div>
+      <div class="jarvis-main">
+        <div class="jarvis-feedwrap" id="jarvis-feed"></div>
+        <div class="jarvis-inrow">
+          <textarea class="chat-input" id="jarvis-input" placeholder="Sag Jarvis, was zu tun ist… (z. B. „plane meinen Tag um meine Termine")" rows="1" style="flex:1;max-height:120px"></textarea>
+          <button class="send-btn" id="jarvis-mic" onclick="startVoice('jarvis-input','jarvis-mic')" title="Spracheingabe" style="background:var(--surface2);color:var(--gold)">🎤</button>
+          <button class="send-btn" onclick="jarvisSend()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CALENDAR VIEW ===== -->
+<div class="view" id="view-calendar">
+  <div class="view-inner">
+    <div class="view-head">
+      <h2>📅 Kalender</h2>
+      <div class="view-actions">
+        <button class="btn-ghost" onclick="document.getElementById('ics-file').click()">⬆️ .ics importieren</button>
+        <input type="file" id="ics-file" accept=".ics,text/calendar" style="display:none" onchange="importICSFile(this.files[0])">
+        <button class="btn-ghost" onclick="subscribeICS()">🔗 iCloud-URL</button>
+        <button class="btn-ghost" onclick="exportPlanICS()">⬇️ Plan als .ics</button>
+        <button class="btn-gold" onclick="planAroundCalendar()">⚡ Tag um Termine planen</button>
+      </div>
+    </div>
+    <p class="muted" id="cal-note" style="margin-bottom:12px"></p>
+    <div id="cal-list"></div>
+  </div>
 </div>
 
 <!-- ===== PLAN VIEW (dynamischer Tagesplan) ===== -->
@@ -1672,28 +1761,18 @@ function mdInline(s) {
     .replace(/\n/g, '<br>');
 }
 
+function chatFeeds() { return [document.getElementById('chat-messages'), document.getElementById('jarvis-feed')].filter(Boolean); }
 function addMessage(role, html, highlight) {
-  const div = document.createElement('div');
-  div.className = 'msg ' + (role === 'assistant' ? 'ai' : 'user');
   const avatar = role === 'assistant' ? 'D' : 'G';
   const hl = highlight ? `<div class="highlight-box">${escapeHtml(highlight)}</div>` : '';
-  div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">${html}${hl}</div>`;
-  chatEl.appendChild(div);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  const markup = `<div class="msg ${role === 'assistant' ? 'ai' : 'user'}"><div class="msg-avatar">${avatar}</div><div class="bubble">${html}${hl}</div></div>`;
+  chatFeeds().forEach(f => { f.insertAdjacentHTML('beforeend', markup); f.scrollTop = f.scrollHeight; });
 }
-
 function showTyping() {
-  const div = document.createElement('div');
-  div.className = 'msg ai';
-  div.id = 'typing-indicator';
-  div.innerHTML = `<div class="msg-avatar">D</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
-  chatEl.appendChild(div);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  const markup = `<div class="msg ai typing-row"><div class="msg-avatar">D</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div></div>`;
+  chatFeeds().forEach(f => { f.insertAdjacentHTML('beforeend', markup); f.scrollTop = f.scrollHeight; });
 }
-function hideTyping() {
-  const t = document.getElementById('typing-indicator');
-  if (t) t.remove();
-}
+function hideTyping() { document.querySelectorAll('.typing-row').forEach(t => t.remove()); }
 
 function pushUserMessage(text) {
   state.chatHistory.push({ role: 'user', content: text });
@@ -1966,7 +2045,7 @@ function showWelcome() {
 /* ---------- App store ---------- */
 const APP_KEY = 'dia_app';
 function defaultApp() {
-  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0, byDate: {} }, plan: null, routines: { enabled: {}, fired: {}, lastNudgeHour: -1 }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '', autoPilot: false } };
+  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0, byDate: {} }, plan: null, routines: { enabled: {}, fired: {}, lastNudgeHour: -1 }, calendar: { events: [], source: '', lastSync: '' }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '', autoPilot: false } };
 }
 function loadApp() {
   try { const d = JSON.parse(localStorage.getItem(APP_KEY) || 'null'); const base = defaultApp(); if (d) { Object.assign(base, d); base.settings = Object.assign(defaultApp().settings, d.settings || {}); base.focus = Object.assign(defaultApp().focus, d.focus || {}); } return base; }
@@ -2020,6 +2099,9 @@ function setView(name) {
   else if (name === 'focus') renderFocus();
   else if (name === 'tools') renderTools();
   else if (name === 'plan') renderPlan();
+  else if (name === 'cockpit') renderCockpit();
+  else if (name === 'jarvis') renderJarvis();
+  else if (name === 'calendar') renderCalendar();
   else if (name === 'mission') highlightNow();
 }
 
@@ -2327,7 +2409,9 @@ const JARVIS_TOOLS = [
   { name: 'get_plan', description: 'Liefert den heutigen dynamischen Tagesplan mit Status.', input_schema: { type: 'object', properties: {} } },
   { name: 'add_plan_item', description: 'Fügt dem Tagesplan einen Zeitblock hinzu.', input_schema: { type: 'object', properties: { title: { type: 'string' }, time: { type: 'string', description: 'HH:MM' }, minutes: { type: 'number' } }, required: ['title'] } },
   { name: 'complete_plan_item', description: 'Markiert einen Tagesplan-Block als erledigt (per Titel oder ID).', input_schema: { type: 'object', properties: { title_or_id: { type: 'string' } }, required: ['title_or_id'] } },
-  { name: 'replan_day', description: 'Taktet die offenen Blöcke des Tagesplans ab jetzt neu.', input_schema: { type: 'object', properties: {} } }
+  { name: 'replan_day', description: 'Taktet die offenen Blöcke des Tagesplans ab jetzt neu.', input_schema: { type: 'object', properties: {} } },
+  { name: 'get_calendar', description: 'Liefert die heutigen Apple-Kalender-Termine.', input_schema: { type: 'object', properties: {} } },
+  { name: 'plan_around_calendar', description: 'Taktet den Tagesplan dynamisch um die heutigen Kalendertermine herum (Termine bleiben fix).', input_schema: { type: 'object', properties: {} } }
 ];
 
 function normStage(s) { if (!s) return 'neu'; s = ('' + s).toLowerCase().trim(); const m = { neu: 'neu', new: 'neu', kontaktiert: 'kontaktiert', contacted: 'kontaktiert', call: 'call', 'call gebucht': 'call', angebot: 'angebot', proposal: 'angebot', offer: 'angebot', gewonnen: 'gewonnen', won: 'gewonnen', verloren: 'verloren', lost: 'verloren' }; return m[s] || (STAGES.find(x => x.id === s) ? s : 'neu'); }
@@ -2355,6 +2439,8 @@ function executeTool(name, a) {
     case 'add_plan_item': { ensurePlan(); const s = hmToMin(a.time); app.plan.items.push({ id: uid(), start: s == null ? nowMin() : s, dur: Math.round(+a.minutes || 60), title: a.title || 'Block', type: 'deep', done: false }); saveApp(); if (document.body.dataset.view === 'plan') renderPlan(); return 'Block geplant: ' + (a.title || 'Block') + ' um ' + (a.time || minToHm(nowMin())) + '.'; }
     case 'complete_plan_item': { ensurePlan(); const it = app.plan.items.find(x => x.id === a.title_or_id) || app.plan.items.find(x => (x.title || '').toLowerCase().includes(('' + a.title_or_id).toLowerCase())); if (!it) return 'Block nicht gefunden.'; it.done = true; saveApp(); if (document.body.dataset.view === 'plan') renderPlan(); return 'Erledigt: ' + it.title; }
     case 'replan_day': { reflowPlan(); return 'Tag neu getaktet ab ' + minToHm(nowMin()) + '.'; }
+    case 'get_calendar': { const ev = todaysEvents(); return ev.length ? ev.map(e => (e.allDay ? 'ganztägig' : minToHm(e.startMin) + '–' + minToHm(e.endMin)) + ' ' + e.title).join('\n') : 'Keine Termine heute (oder Kalender nicht verbunden).'; }
+    case 'plan_around_calendar': { planAroundCalendar(); return 'Tagesplan dynamisch um die heutigen Termine herum getaktet.'; }
     default: return 'Unbekanntes Tool: ' + name;
   }
 }
@@ -2405,15 +2491,16 @@ async function agentLoop() {
 
 /* ---------- Voice in / out ---------- */
 let recog = null, recognizing = false;
-function startVoice() {
+function startVoice(inputId, micId) {
+  inputId = inputId || 'chat-input'; micId = micId || 'mic-btn';
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('Spracheingabe in diesem Browser nicht unterstützt'); return; }
   if (recognizing) { try { recog && recog.stop(); } catch (e) {} return; }
   recog = new SR(); recog.lang = 'de-DE'; recog.interimResults = false; recog.maxAlternatives = 1;
-  recognizing = true; const mic = document.getElementById('mic-btn'); if (mic) mic.classList.add('rec');
-  recog.onresult = e => { const t = e.results[0][0].transcript; const inp = document.getElementById('chat-input'); inp.value = (inp.value ? inp.value + ' ' : '') + t; inp.dispatchEvent(new Event('input')); };
-  recog.onend = () => { recognizing = false; const mic = document.getElementById('mic-btn'); if (mic) mic.classList.remove('rec'); };
-  recog.onerror = () => { recognizing = false; const mic = document.getElementById('mic-btn'); if (mic) mic.classList.remove('rec'); };
+  recognizing = true; const mic = document.getElementById(micId); if (mic) mic.classList.add('rec');
+  recog.onresult = e => { const t = e.results[0][0].transcript; const inp = document.getElementById(inputId); if (inp) { inp.value = (inp.value ? inp.value + ' ' : '') + t; inp.dispatchEvent(new Event('input')); } };
+  recog.onend = () => { recognizing = false; const m = document.getElementById(micId); if (m) m.classList.remove('rec'); };
+  recog.onerror = () => { recognizing = false; const m = document.getElementById(micId); if (m) m.classList.remove('rec'); };
   try { recog.start(); } catch (e) { recognizing = false; }
 }
 function speak(text) {
@@ -2433,14 +2520,14 @@ const PLAYBOOKS = [
   { label: '📈 Pipeline-Check', msg: 'Analysiere mit get_status und list_leads meine Pipeline: reicht der Forecast fürs 100K-Ziel? Was ist der eine Hebel? Konkret und kurz.' }
 ];
 function renderPlaybooks() { const el = document.getElementById('playbooks'); if (!el) return; el.innerHTML = PLAYBOOKS.map((p, i) => '<button class="btn-ghost" onclick="runPlaybook(' + i + ')">' + p.label + '</button>').join(''); }
-function runPlaybook(i) { const p = PLAYBOOKS[i]; if (!p) return; if (!hasClaude()) { toast('Playbooks brauchen echten Claude — Key in Tools eintragen'); return; } setView('mission'); if (window.innerWidth <= 900) setMobileView('right'); quickSend(p.msg); }
+function runPlaybook(i) { const p = PLAYBOOKS[i]; if (!p) return; if (!hasClaude()) { toast('Playbooks brauchen echten Claude — Key in Tools eintragen'); return; } if (document.body.dataset.view !== 'jarvis') { setView('mission'); if (window.innerWidth <= 900) setMobileView('right'); } quickSend(p.msg); }
 
 /* ---------- Auto-Pilot ---------- */
 let nextMoveT = 0;
 function nextMove(force) {
   if (!hasClaude()) { if (force) toast('Braucht echten Claude (Key in Tools)'); return; }
   const now = Date.now(); if (!force && now - nextMoveT < 45000) return; nextMoveT = now;
-  setView('mission'); if (window.innerWidth <= 900) setMobileView('right');
+  if (document.body.dataset.view !== 'jarvis') { setView('mission'); if (window.innerWidth <= 900) setMobileView('right'); }
   quickSend('Was ist gerade mein nächster konkreter Zug? Ein Schritt, sofort umsetzbar — und führ ihn aus, wenn es sinnvoll ist.');
 }
 function toggleAutoPilot() { app.settings.autoPilot = !app.settings.autoPilot; saveApp(); updateToggleBtns(); toast(app.settings.autoPilot ? 'Auto-Pilot an — Jarvis schlägt nach Buchungen den nächsten Zug vor' : 'Auto-Pilot aus'); }
@@ -2558,6 +2645,126 @@ function checkRoutines() {
 }
 function tickMinute() { try { highlightNow(); if (document.body.dataset.view === 'plan') renderPlan(); checkRoutines(); } catch (e) {} }
 
+/* ============================================================= *
+ *  COCKPIT · JARVIS CONSOLE · APPLE CALENDAR (ICS)             *
+ * ============================================================= */
+
+/* ---------- Cockpit ---------- */
+function currentPlanItem() { ensurePlan(); const n = nowMin(); return app.plan.items.find(i => !i.done && n >= i.start && n < i.start + i.dur) || null; }
+function nextPlanItem() { ensurePlan(); const n = nowMin(); return app.plan.items.filter(i => !i.done && i.start > n).sort((a, b) => a.start - b.start)[0] || null; }
+function tile(view, title, inner) { return '<div class="tile" onclick="setView(\'' + view + '\')"><h4>' + title + '</h4>' + inner + '</div>'; }
+function tileFlat(title, inner) { return '<div class="tile flat"><h4>' + title + '</h4>' + inner + '</div>'; }
+function renderCockpit() {
+  const el = document.getElementById('cockpit-grid'); if (!el) return;
+  const s = calcScore(); const cd = missionDayNow(); const onTrack = state.totalEarned >= DAILY_TARGET * cd;
+  const cur = currentPlanItem(), nxt = nextPlanItem();
+  const ev = todaysEvents(); const nextEv = ev.find(e => e.endMs > Date.now()) || ev[0];
+  const items = (app.plan && app.plan.items) ? app.plan.items : [];
+  const od = items.filter(i => planItemStatus(i) === 'overdue' && !i.done).length;
+  const doneCt = items.filter(i => i.done).length;
+  const tasks = app.inbox.filter(i => !i.done).slice(0, 3);
+  el.innerHTML = [
+    tile('mission', '💰 Revenue', '<div class="big gold">' + fmtEur(state.totalEarned) + '</div><div class="sub">' + Math.round(state.totalEarned / state.targetAmount * 100) + '% vom Ziel · ' + (onTrack ? '<span style="color:var(--green)">auf Kurs</span>' : '<span style="color:var(--red)">hinten dran</span>') + '</div>'),
+    tile('analytics', '📈 Pipeline & Forecast', '<div class="big">' + fmtEur(pipelineValue()) + '</div><div class="sub">Forecast T90: ' + fmtEur(state.totalEarned + pipelineValue()) + '</div>'),
+    tile('plan', '⏱️ Jetzt', '<div class="line">' + (cur ? escAttr(cur.title) : '—') + '</div><div class="sub">Danach: ' + (nxt ? minToHm(nxt.start) + ' ' + escAttr(nxt.title) : '—') + '</div>'),
+    tile('calendar', '📅 Nächster Termin', nextEv ? ('<div class="line">' + escAttr(nextEv.title) + '</div><div class="sub">' + (nextEv.allDay ? 'ganztägig' : minToHm(nextEv.startMin)) + '</div>') : '<div class="sub">Kein Termin · Kalender verbinden</div>'),
+    tile('plan', '🗓️ Tagesplan', '<div class="big">' + doneCt + '/' + items.length + '</div><div class="sub">' + (od ? '<span style="color:var(--red)">' + od + ' überfällig</span>' : 'im Plan') + '</div>'),
+    tile('focus', '🔥 Streaks', '<div class="line">🏋️ ' + streakOf('health') + ' · 🎬 ' + streakOf('content') + ' · 💪 ' + streakActive() + '</div><div class="sub">Tage in Folge</div>'),
+    tile('focus', '⏱️ Fokus heute', '<div class="big">' + focusToday() + '<span style="font-size:13px"> min</span></div><div class="sub">' + (app.focus.count || 0) + ' Sessions</div>'),
+    tile('mission', '🎯 Tages-Score', '<div class="big ' + (s.total >= 70 ? 'green' : s.total >= 40 ? 'gold' : 'red') + '">' + s.total + '<span style="font-size:13px">/100</span></div><div class="sub">Rev ' + Math.round(s.rev) + '% · Health ' + Math.round(s.health) + '%</div>'),
+    tileFlat('✅ Top-Tasks', tasks.length ? tasks.map(t => '<div class="line">• ' + escAttr(t.text) + '</div>').join('') : '<div class="sub">Inbox leer</div>'),
+    tileFlat('⚡ Schnellbefehle', '<div class="jarvis-qa"><button class="btn-ghost" onclick="event.stopPropagation();gotoJarvis(\'briefing\')">☀️ Briefing</button><button class="btn-ghost" onclick="event.stopPropagation();nextMove(true)">⚡ Nächster Zug</button><button class="btn-ghost" onclick="event.stopPropagation();setView(\'crm\');openLeadModal()">+ Lead</button><button class="btn-ghost" onclick="event.stopPropagation();planAroundCalendar()">📅 Um Termine planen</button></div>')
+  ].join('');
+}
+function gotoJarvis(pb) { setView('jarvis'); if (pb === 'briefing') quickSend('Kurzes Briefing: Top 3 für heute und fällige Follow-ups.'); }
+
+/* ---------- Jarvis console ---------- */
+function renderJarvis() {
+  const st = document.getElementById('jarvis-status2'); if (st) st.textContent = hasClaude() ? '● Claude verbunden — kann handeln' : '● Demo (Key in Tools)';
+  const pb = document.getElementById('jarvis-playbooks'); if (pb) pb.innerHTML = PLAYBOOKS.map((p, i) => '<button class="btn-ghost" onclick="runPlaybook(' + i + ')">' + p.label + '</button>').join('');
+  const qk = document.getElementById('jarvis-quick'); if (qk) qk.innerHTML = quickActions.map(q => '<button class="btn-ghost" data-msg="' + escAttr(q.msg) + '" onclick="jarvisQuick(this)">' + q.label + '</button>').join('');
+  const caps = document.getElementById('jarvis-caps'); if (caps) caps.innerHTML = ['Leads anlegen & verschieben', 'Umsatz buchen', 'Tagesplan takten', 'Um Kalender-Termine planen', 'Aufgaben & KPIs erfassen', 'Deep-Work-Timer starten', 'Sich Dinge dauerhaft merken'].map(c => '<div class="line">• ' + c + '</div>').join('');
+}
+function jarvisQuick(btn) { quickSend(btn.dataset.msg); }
+function jarvisSend() { const i = document.getElementById('jarvis-input'); const t = i.value.trim(); if (!t) return; i.value = ''; i.style.height = 'auto'; pushUserMessage(t); runAI(); }
+function jarvisNewChat() { state.chatHistory = []; saveState(); document.querySelectorAll('#chat-messages, #jarvis-feed').forEach(f => { if (f) f.innerHTML = ''; }); showWelcome(); toast('Neuer Chat gestartet'); }
+
+/* ---------- Apple Calendar (ICS) ---------- */
+function parseICSDate(v) {
+  v = ('' + v).trim(); const m = v.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?/); if (!m) return null;
+  const Y = +m[1], Mo = +m[2] - 1, D = +m[3];
+  if (m[4] === undefined) return { ms: new Date(Y, Mo, D).getTime(), allDay: true };
+  const h = +m[4], mi = +m[5], s = +(m[6] || 0);
+  if (m[7]) return { ms: Date.UTC(Y, Mo, D, h, mi, s), allDay: false };
+  return { ms: new Date(Y, Mo, D, h, mi, s).getTime(), allDay: false };
+}
+function dateKeyOf(ms) { const d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function minOfMs(ms) { const d = new Date(ms); return d.getHours() * 60 + d.getMinutes(); }
+function parseICS(text) {
+  const unfolded = ('' + text).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+  const lines = unfolded.split(/\r?\n/); const events = []; let cur = null;
+  lines.forEach(line => {
+    if (line === 'BEGIN:VEVENT') { cur = {}; return; }
+    if (line === 'END:VEVENT') {
+      if (cur && cur.start) { const sk = parseICSDate(cur.start); const ek = cur.end ? parseICSDate(cur.end) : null; if (sk) events.push({ title: cur.summary || '(ohne Titel)', startMs: sk.ms, endMs: ek ? ek.ms : sk.ms + 3600000, allDay: sk.allDay, dateKey: dateKeyOf(sk.ms), startMin: minOfMs(sk.ms), endMin: ek ? minOfMs(ek.ms) : minOfMs(sk.ms) + 60 }); }
+      cur = null; return;
+    }
+    if (!cur) return;
+    const idx = line.indexOf(':'); if (idx < 0) return;
+    const key = line.slice(0, idx), val = line.slice(idx + 1);
+    if (key.indexOf('SUMMARY') === 0) cur.summary = val.replace(/\\,/g, ',').replace(/\\n/gi, ' ').trim();
+    else if (key.indexOf('DTSTART') === 0) cur.start = val;
+    else if (key.indexOf('DTEND') === 0) cur.end = val;
+  });
+  return events;
+}
+function storeEvents(events, source) {
+  app.calendar = app.calendar || { events: [], source: '', lastSync: '' };
+  app.calendar.events = events.sort((a, b) => a.startMs - b.startMs);
+  if (source) app.calendar.source = source;
+  app.calendar.lastSync = new Date().toISOString(); saveApp();
+  toast(events.length + ' Termine importiert'); renderCalendar();
+  if (document.body.dataset.view === 'cockpit') renderCockpit();
+}
+function importICSFile(file) { if (!file) return; const r = new FileReader(); r.onload = () => { try { storeEvents(parseICS(r.result), 'Datei: ' + file.name); } catch (e) { toast('ICS konnte nicht gelesen werden'); } }; r.readAsText(file); }
+function subscribeICS() {
+  const cur = (app.calendar && /^https?:/.test(app.calendar.source || '')) ? app.calendar.source : '';
+  const url = prompt('Öffentliche Apple/iCloud-Kalender-URL (webcal:// oder https://…ics):\n\nIn Apple Kalender: Kalender freigeben → „Öffentlicher Kalender" → Link kopieren.', cur);
+  if (url === null) return; let u = url.trim(); if (!u) return; u = u.replace(/^webcal:/i, 'https:');
+  toast('Lade Kalender…');
+  fetch(u).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(t => storeEvents(parseICS(t), u)).catch(() => toast('Abruf fehlgeschlagen (CORS/URL) — nutze stattdessen .ics-Import'));
+}
+function todaysEvents() { if (!app.calendar || !app.calendar.events) return []; return app.calendar.events.filter(e => e.dateKey === todayKey()).sort((a, b) => a.startMs - b.startMs); }
+function renderCalendar() {
+  const el = document.getElementById('cal-list'); if (!el) return;
+  const note = document.getElementById('cal-note');
+  if (note) note.textContent = (app.calendar && app.calendar.lastSync) ? ('Quelle: ' + (app.calendar.source || '—') + ' · ' + app.calendar.events.length + ' Termine · Sync ' + new Date(app.calendar.lastSync).toLocaleString('de-DE')) : 'Noch kein Kalender verbunden. Importiere eine .ics-Datei oder verbinde deine öffentliche iCloud-URL — Jarvis plant dann um deine Termine herum.';
+  if (!app.calendar || !app.calendar.events.length) { el.innerHTML = ''; return; }
+  const days = {}; const start = new Date(); start.setHours(0, 0, 0, 0);
+  app.calendar.events.forEach(e => { const d = new Date(e.startMs); if (d >= new Date(start.getTime() - 86400000) && d <= new Date(start.getTime() + 8 * 86400000)) (days[e.dateKey] = days[e.dateKey] || []).push(e); });
+  const keys = Object.keys(days).sort();
+  el.innerHTML = keys.map(k => { const d = new Date(k + 'T00:00:00'); const lbl = (k === todayKey() ? 'Heute · ' : '') + WEEKDAYS[d.getDay()] + ', ' + d.getDate() + '. ' + MONTHS[d.getMonth()]; return '<div class="cal-day"><h4>' + lbl + '</h4>' + days[k].map(e => '<div class="cal-event"><div class="t">' + (e.allDay ? 'ganztägig' : minToHm(e.startMin) + '–' + minToHm(e.endMin)) + '</div><div class="s">' + escAttr(e.title) + '</div></div>').join('') + '</div>'; }).join('') || '<p class="muted">Keine Termine in den nächsten 7 Tagen.</p>';
+}
+function planAroundCalendar() {
+  ensurePlan();
+  const busy = todaysEvents().filter(e => !e.allDay).map(e => ({ s: e.startMin, e: Math.max(e.endMin, e.startMin + 15) })).sort((a, b) => a.s - b.s);
+  const undone = app.plan.items.filter(i => !i.done).sort((a, b) => a.start - b.start);
+  let cursor = nowMin();
+  function nextFree(from, dur) { let c = from; for (let g = 0; g < 300; g++) { const hit = busy.find(b => c < b.e && c + dur > b.s); if (!hit) return c; c = hit.e; } return c; }
+  undone.forEach(i => { const slot = nextFree(cursor, i.dur); i.start = slot; cursor = slot + i.dur; });
+  saveApp(); setView('plan'); renderPlan(); toast('Tag um ' + busy.length + ' Termin(e) herum getaktet');
+}
+function icsEsc(s) { return ('' + s).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n'); }
+function dtICS(ms) { const d = new Date(ms), p = n => String(n).padStart(2, '0'); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + 'T' + p(d.getHours()) + p(d.getMinutes()) + '00'; }
+function exportPlanICS() {
+  ensurePlan(); const base = new Date(); base.setHours(0, 0, 0, 0); const baseMs = base.getTime();
+  let L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DIA//Jarvis//DE', 'CALSCALE:GREGORIAN'];
+  app.plan.items.forEach(it => { L.push('BEGIN:VEVENT', 'UID:' + it.id + '@dia', 'DTSTAMP:' + dtICS(Date.now()), 'DTSTART:' + dtICS(baseMs + it.start * 60000), 'DTEND:' + dtICS(baseMs + (it.start + it.dur) * 60000), 'SUMMARY:' + icsEsc('DIA · ' + it.title), 'END:VEVENT'); });
+  L.push('END:VCALENDAR');
+  const blob = new Blob([L.join('\r\n')], { type: 'text/calendar' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dia-tagesplan-' + todayKey() + '.ics'; a.click();
+  toast('Tagesplan als .ics exportiert — in Apple Kalender öffnen');
+}
+
 /* ---------- Module init ---------- */
 function initModules() {
   if (!app.settings.startDate) { app.settings.startDate = todayKey(); saveApp(); }
@@ -2569,6 +2776,8 @@ function initModules() {
   });
   const ci = document.getElementById('cmdk-input');
   if (ci) { ci.addEventListener('input', () => renderCmdk(ci.value)); ci.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = document.querySelector('.cmdk-item[data-i]'); if (first) runCmd(+first.dataset.i); } }); }
+  const ji = document.getElementById('jarvis-input');
+  if (ji) { ji.addEventListener('input', function () { this.style.height = 'auto'; this.style.height = Math.min(120, this.scrollHeight) + 'px'; }); ji.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); jarvisSend(); } }); }
   const mb = document.getElementById('modal-backdrop'); if (mb) mb.addEventListener('click', e => { if (e.target === mb) closeModal(); });
   const ck = document.getElementById('cmdk'); if (ck) ck.addEventListener('click', e => { if (e.target === ck) closeCmdk(); });
   if (app.settings.notifs) scheduleNotifs();
