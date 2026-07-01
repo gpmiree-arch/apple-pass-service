@@ -1196,6 +1196,8 @@
       <h2>🗓️ Dynamischer Tagesplan</h2>
       <div class="view-actions">
         <span class="forecast-pill" id="plan-focus">Fokus heute: 0 min</span>
+        <button class="btn-ghost" onclick="openProfile()">⚙️ Rhythmus</button>
+        <button class="btn-ghost" onclick="rebuildPlan()">↻ Neu bauen</button>
         <button class="btn-ghost" onclick="addPlanItem()">+ Block</button>
         <button class="btn-gold" onclick="reflowPlan()">⚡ Neu takten</button>
       </div>
@@ -1500,72 +1502,82 @@ function setActiveStep(id) {
 /* ===================== PLANNER DATA ===================== */
 const planner = {
   0: [
-    { type: 'section', time: '05:00 – 07:15', label: '🌅 Morgen-Routine' },
-    { type: 'gym', time: '05:00–06:30', title: '🏋️ GYM Session', tag: 'GYM', tagClass: 'tag-gym',
-      desc: 'Push / Pull / Legs Zyklus. Kein Skip. Keine Excuses. Das ist Identität, kein Option.',
-      todos: ['Gym Bag abends vorbereiten', 'Pre-Workout + Wasser', 'Workout geloggt (Gewicht + Sätze)'], score: 'health' },
-    { type: 'run', time: '06:30–07:15', title: '🏃 5km Run', tag: 'RUN', tagClass: 'tag-run',
-      desc: 'Mindest 5km. Kein Wetter als Ausrede. Kopfhörer an, Podcast oder Stille. Gedanken klären für den Tag.',
-      todos: ['Route getrackt (Nike Run / Strava)', '5km abgeschlossen ✓'], score: 'health' },
+    { type: 'section', time: '07:00 – 08:30', label: '🌅 Morgen-Start' },
+    { type: 'admin', time: '07:00–07:30', title: '☀️ Aufstehen & Klarheit', tag: 'START', tagClass: 'tag-muted',
+      desc: 'Um 7 aufstehen. Wasser, Kaffee, kein Handy-Scroll. Kurz den Tag klarziehen: die 3 wichtigsten Dinge.',
+      todos: ['07:00 aufgestanden — kein Snooze', 'Wasser + Kaffee', 'Top 3 des Tages notiert'] },
+    { type: 'admin', time: '07:30–08:30', title: '📚 Lesen / Lernen (1 Stunde)', tag: 'GROWTH', tagClass: 'tag-muted',
+      desc: 'Sales, Marketing, Business. Kein Social Media. Mindestens 20 Seiten oder 1 Podcast-Folge. Ruhiger Start in den Kopf.',
+      todos: ['1 Stunde fokussiertes Lesen ✓', 'Key-Insight notiert'] },
 
-    { type: 'section', time: '07:30 – 11:00', label: '⚡ Deep Work I – Revenue' },
-    { type: 'revenue', time: '07:30–08:00', title: '📊 Tages-Briefing + Meta Ads Check', tag: 'REVENUE', tagClass: 'tag-revenue',
+    { type: 'section', time: '08:30 – 12:00', label: '⚡ Deep Work I – Revenue' },
+    { type: 'revenue', time: '08:30–09:00', title: '📊 Tages-Briefing + Meta Ads Check', tag: 'REVENUE', tagClass: 'tag-revenue',
       desc: 'Ads-Performance von gestern reviewen. CPL, CTR, ROAS. Budget-Entscheidung für heute treffen.',
       todos: ['Meta Ads Manager öffnen → KPIs notieren', 'Underperformer pausieren', 'Winner skalieren', 'Neues Tagesbudget festlegen'] },
-    { type: 'deep', time: '08:00–09:30', title: '✍️ Content-Block (Reel / Post)', tag: 'CONTENT', tagClass: 'tag-content',
+    { type: 'deep', time: '09:00–10:30', title: '✍️ Content-Block (Reel / Post)', tag: 'CONTENT', tagClass: 'tag-content',
       desc: '1x Reel oder Karussell produzieren. Hook in ersten 2 Sek. Mehrwert + CTA zum Ebook. iPhone 17 nutzen.',
       todos: ['Hook formuliert + getestet', 'Video / Bild aufgenommen', 'Caption + CTA geschrieben', 'Gepostet / scheduled'], score: 'content' },
-    { type: 'revenue', time: '09:30–11:00', title: '📩 DM Outreach (5 warm leads)', tag: 'OUTREACH', tagClass: 'tag-revenue',
+    { type: 'revenue', time: '10:30–12:00', title: '📩 DM Outreach (5 warme Leads)', tag: 'OUTREACH', tagClass: 'tag-revenue',
       desc: 'Keine Cold Spam-DMs. Personalisierte Nachrichten an Menschen, die mit deinem Content interagiert haben. Ziel: Gespräch öffnen, nicht sofort verkaufen.',
       todos: ['Lead-Liste aus Interaktionen ziehen (5 Namen)', '5x personalisierte DMs gesendet', 'Antworten in Jarvis CRM geloggt', 'Follow-ups für morgen gesetzt'], score: 'outreach' },
 
-    { type: 'section', time: '11:00 – 14:00', label: '📞 Sales Calls + Closes' },
-    { type: 'revenue', time: '11:00–13:30', title: '📞 Sales Calls (2–3 Erstgespräche)', tag: '€€€', tagClass: 'tag-revenue',
+    { type: 'section', time: '12:00 – 14:30', label: '📞 Sales Calls + Closes' },
+    { type: 'revenue', time: '12:00–14:00', title: '📞 Sales Calls (2–3 Erstgespräche)', tag: '€€€', tagClass: 'tag-revenue',
       desc: 'Du hast 60%+ Close Rate. Das ist deine stärkste Waffe. Bottleneck = Lead Gen, nicht Closing. Calls sind Priorität 1.',
       todos: ['Call 1: Vorbereitung (Profil, Situation)', 'Call 1: Durchgeführt + Ergebnis notiert', 'Call 2: Durchgeführt + Ergebnis notiert', 'Closes in Jarvis + Revenue gebucht', 'WhatsApp-Onboarding gestartet'] },
-    { type: 'admin', time: '13:30–14:00', title: '🍽️ Pause + Recharge', tag: 'RESET', tagClass: 'tag-muted',
+    { type: 'admin', time: '14:00–14:30', title: '🍽️ Pause + Recharge', tag: 'RESET', tagClass: 'tag-muted',
       desc: 'Essen. Kein Handy. Keine Mails. Kein Doom-Scrolling. Echte Erholung für Block 2.' },
 
-    { type: 'section', time: '14:00 – 17:30', label: '🔧 Deep Work II – Funnel & System' },
-    { type: 'deep', time: '14:00–15:30', title: '⚙️ Funnel-Optimierung / Jarvis', tag: 'SYSTEM', tagClass: 'tag-system',
+    { type: 'section', time: '14:30 – 18:00', label: '🔧 Deep Work II – Funnel & System' },
+    { type: 'deep', time: '14:30–16:00', title: '⚙️ Funnel-Optimierung / Jarvis', tag: 'SYSTEM', tagClass: 'tag-system',
       desc: 'Eine konkrete Verbesserung am Funnel oder System. Kein Feature-Creep. Klare Frage: Was ist das eine Ding, das heute den meisten Impact auf Leads hat?',
       todos: ['Fokus-Aufgabe für heute definiert', 'Aufgabe zu 100% abgeschlossen', 'Ergebnis dokumentiert'] },
-    { type: 'revenue', time: '15:30–17:30', title: '📣 Ad Creatives + Funnel Content', tag: 'ADS', tagClass: 'tag-revenue',
+    { type: 'revenue', time: '16:00–18:00', title: '📣 Ad Creatives + Funnel Content', tag: 'ADS', tagClass: 'tag-revenue',
       desc: 'Neue Ad-Creative-Idee testen oder bestehende verbessern. Ziel: 1 neue Variante raus oder LP-Verbesserung live.',
       todos: ['Creative-Idee identifiziert', 'Asset erstellt / Brief fertig', 'In Meta hochgeladen / live'] },
 
-    { type: 'section', time: '18:00 – 20:00', label: '🌙 Abend-Block' },
-    { type: 'review', time: '18:00–19:00', title: '📋 Tages-Review + Morgen-Plan', tag: 'REVIEW', tagClass: 'tag-green',
+    { type: 'section', time: '18:00 – 18:45', label: '🌙 Review' },
+    { type: 'review', time: '18:00–18:45', title: '📋 Tages-Review + Morgen-Plan', tag: 'REVIEW', tagClass: 'tag-green',
       desc: "Was lief? Was nicht? Was war der Grund? Morgen's Top 3 Aufgaben definieren. Revenue eintragen. Score sehen.",
       todos: ['Revenue des Tages eingetragen', '3 Wins des Tages notiert', '1 Verbesserung für morgen notiert', 'Top 3 Tasks für morgen definiert'] },
-    { type: 'admin', time: '19:00–20:00', title: '📚 Lesen / Lernen (1 Stunde)', tag: 'GROWTH', tagClass: 'tag-muted',
-      desc: 'Sales, Marketing, Business. Kein Social Media. Mindestens 20 Seiten oder 1 Podcast-Folge. Invest in dich.',
-      todos: ['1 Stunde fokussiertes Lesen ✓', 'Key-Insight notiert'] }
+
+    { type: 'section', time: '19:00 – 21:15', label: '🏋️ Abend – Training' },
+    { type: 'gym', time: '19:00–20:30', title: '🏋️ GYM Session (abends)', tag: 'GYM', tagClass: 'tag-gym',
+      desc: 'Abends nach der Arbeit ins Gym. Push / Pull / Legs Zyklus. Kein Skip. Das ist Identität, kein Option.',
+      todos: ['Gym Bag morgens vorbereitet', 'Pre-Workout / Snack', 'Workout geloggt (Gewicht + Sätze)'], score: 'health' },
+    { type: 'run', time: '20:30–21:15', title: '🏃 5km Run', tag: 'RUN', tagClass: 'tag-run',
+      desc: 'Mindest 5km im Anschluss oder als Cardio. Kein Wetter als Ausrede. Kopf frei machen, Tag abschließen.',
+      todos: ['Route getrackt (Nike Run / Strava)', '5km abgeschlossen ✓'], score: 'health' }
   ],
   1: [
-    { type: 'section', time: '05:00 – 07:15', label: 'Physical Foundation' },
-    { type: 'gym', time: '05:00–07:15', title: '🏋️ Gym + 5km Run', tag: 'BODY', tagClass: 'tag-gym',
-      desc: 'Selbe Routine. Kein Verhandeln. Körper und Mind sind ein System.',
-      todos: ['Gym Session absolviert', '5km Run abgeschlossen'], score: 'health' },
+    { type: 'section', time: '07:00 – 08:30', label: '🌅 Morgen-Start' },
+    { type: 'admin', time: '07:00–08:30', title: '☀️ Aufstehen + Lesen', tag: 'START', tagClass: 'tag-muted',
+      desc: 'Um 7 auf, Wasser + Kaffee, Top 3 des Tages. Danach 1 Stunde lesen/lernen. Ruhiger, klarer Start.',
+      todos: ['07:00 aufgestanden', 'Top 3 definiert', '1 Stunde gelesen'] },
 
-    { type: 'section', time: '07:30 – 12:00', label: 'Revenue Morning' },
-    { type: 'revenue', time: '07:30–09:00', title: '🧪 A/B-Test Setup + Neues Creative', tag: 'ADS', tagClass: 'tag-revenue',
+    { type: 'section', time: '08:30 – 12:00', label: 'Revenue Morning' },
+    { type: 'revenue', time: '08:30–10:00', title: '🧪 A/B-Test Setup + Neues Creative', tag: 'ADS', tagClass: 'tag-revenue',
       desc: 'Basierend auf gestrigen Ad-Daten: welche Variable testen wir heute? Headline / Bild / Zielgruppe. Eine Variable. Sauber testen.',
       todos: ['Test-Hypothese definiert', 'Variante erstellt + live'] },
-    { type: 'revenue', time: '09:00–12:00', title: '📞 Sales Calls + Follow-ups', tag: '€€€', tagClass: 'tag-revenue',
+    { type: 'revenue', time: '10:00–12:00', title: '📞 Sales Calls + Follow-ups', tag: '€€€', tagClass: 'tag-revenue',
       desc: 'Calls aus heutigem DM-Outreach werden morgen zu Terminen. Plus: gestern unentschiedene Leads nochmal anschreiben.',
       todos: ['3 Calls durchgeführt', 'Follow-up Liste abgearbeitet', 'Neues Revenue eingetragen'] },
 
     { type: 'section', time: '13:00 – 17:00', label: 'System + Skalierung' },
     { type: 'deep', time: '13:00–17:00', title: '🎓 Tripwire Kurs (249€) Struktur planen', tag: 'SYSTEM', tagClass: 'tag-system',
       desc: 'Phase 2 Vorbereitung. Tripwire erhöht LTV und filtert kaufbereite Leads automatisch raus. Outline + Landingpage-Konzept.',
-      todos: ['Kurs-Inhalt (5 Module) skizziert', 'LP-Headline + CTA formuliert', 'Preispsychologie-Anker gesetzt'] }
+      todos: ['Kurs-Inhalt (5 Module) skizziert', 'LP-Headline + CTA formuliert', 'Preispsychologie-Anker gesetzt'] },
+
+    { type: 'section', time: '19:00 – 21:15', label: '🏋️ Abend – Training' },
+    { type: 'gym', time: '19:00–21:15', title: '🏋️ Gym + 5km Run (abends)', tag: 'BODY', tagClass: 'tag-gym',
+      desc: 'Abends nach der Arbeit. Selbe Routine. Kein Verhandeln. Körper und Mind sind ein System.',
+      todos: ['Gym Session absolviert', '5km Run abgeschlossen'], score: 'health' }
   ],
   2: [
-    { type: 'section', time: '05:00 – 07:15', label: 'Physical Foundation' },
-    { type: 'gym', time: '05:00–07:15', title: '🏋️ Gym + 5km Run', tag: 'BODY', tagClass: 'tag-gym',
-      desc: 'Immer. Konsistenz schlägt Intensität. Der Mann, der jeden Tag läuft, übertrifft den, der sporadisch sprintet.',
-      todos: ['Gym Session absolviert', '5km Run abgeschlossen'], score: 'health' },
+    { type: 'section', time: '07:00 – 08:00', label: '🌅 Morgen-Start' },
+    { type: 'admin', time: '07:00–08:00', title: '☀️ Aufstehen + Klarheit', tag: 'START', tagClass: 'tag-muted',
+      desc: 'Um 7 auf, Wasser + Kaffee. Ruhiger Start — heute ist der strategische Tag.',
+      todos: ['07:00 aufgestanden', 'Top 3 des Tages'] },
 
     { type: 'section', time: '08:00 – 12:00', label: 'Wochenreview + Strategie' },
     { type: 'review', time: '08:00–10:00', title: '🔍 3-Tage Review + Zahlen-Audit', tag: 'REVIEW', tagClass: 'tag-green',
@@ -1578,7 +1590,12 @@ const planner = {
     { type: 'section', time: '13:00 – 17:00', label: 'Skalierungs-Sprint' },
     { type: 'revenue', time: '13:00–17:00', title: '🇺🇸 US-Markt Vorbereitung (parallel)', tag: 'US', tagClass: 'tag-revenue',
       desc: 'Schon jetzt die Grundlage legen: englische Version des Ebooks konzipieren, US-Preispositionierung ($4,997) recherchieren, US-Competitor-Analyse.',
-      todos: ['3 US-Competitor Profile erstellt', 'Englischer Ebook-Titel / Hook formuliert', 'US LLC Optionen recherchiert (Delaware)', 'Erste englische Ad-Copy Idee notiert'] }
+      todos: ['3 US-Competitor Profile erstellt', 'Englischer Ebook-Titel / Hook formuliert', 'US LLC Optionen recherchiert (Delaware)', 'Erste englische Ad-Copy Idee notiert'] },
+
+    { type: 'section', time: '19:00 – 21:15', label: '🏋️ Abend – Training' },
+    { type: 'gym', time: '19:00–21:15', title: '🏋️ Gym + 5km Run (abends)', tag: 'BODY', tagClass: 'tag-gym',
+      desc: 'Abends. Konsistenz schlägt Intensität. Der Mann, der jeden Tag trainiert, übertrifft den, der sporadisch sprintet.',
+      todos: ['Gym Session absolviert', '5km Run abgeschlossen'], score: 'health' }
   ]
 };
 
@@ -2045,7 +2062,7 @@ function showWelcome() {
 /* ---------- App store ---------- */
 const APP_KEY = 'dia_app';
 function defaultApp() {
-  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0, byDate: {} }, plan: null, routines: { enabled: {}, fired: {}, lastNudgeHour: -1 }, calendar: { events: [], source: '', lastSync: '' }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '', autoPilot: false } };
+  return { leads: [], revenueHistory: [], habits: {}, metrics: [], inbox: [], focus: { count: 0, totalMin: 0, byDate: {} }, plan: null, routines: { enabled: {}, fired: {}, lastNudgeHour: -1 }, calendar: { events: [], source: '', lastSync: '' }, profile: { wake: '07:00', workStart: '08:30', gym: '19:00', gymDur: 90, runDur: 45 }, settings: { notifs: false, startDate: '', lastMs: 0, tts: false, autoBrief: false, lastBrief: '', autoPilot: false } };
 }
 function loadApp() {
   try { const d = JSON.parse(localStorage.getItem(APP_KEY) || 'null'); const base = defaultApp(); if (d) { Object.assign(base, d); base.settings = Object.assign(defaultApp().settings, d.settings || {}); base.focus = Object.assign(defaultApp().focus, d.focus || {}); } return base; }
@@ -2411,7 +2428,10 @@ const JARVIS_TOOLS = [
   { name: 'complete_plan_item', description: 'Markiert einen Tagesplan-Block als erledigt (per Titel oder ID).', input_schema: { type: 'object', properties: { title_or_id: { type: 'string' } }, required: ['title_or_id'] } },
   { name: 'replan_day', description: 'Taktet die offenen Blöcke des Tagesplans ab jetzt neu.', input_schema: { type: 'object', properties: {} } },
   { name: 'get_calendar', description: 'Liefert die heutigen Apple-Kalender-Termine.', input_schema: { type: 'object', properties: {} } },
-  { name: 'plan_around_calendar', description: 'Taktet den Tagesplan dynamisch um die heutigen Kalendertermine herum (Termine bleiben fix).', input_schema: { type: 'object', properties: {} } }
+  { name: 'plan_around_calendar', description: 'Taktet den Tagesplan dynamisch um die heutigen Kalendertermine herum (Termine bleiben fix).', input_schema: { type: 'object', properties: {} } },
+  { name: 'set_routine', description: 'Passt Gabriels Tagesrhythmus an (Aufstehen, Arbeitsstart, Gym-Zeit/-Dauer) und baut den Tagesplan neu.', input_schema: { type: 'object', properties: { wake: { type: 'string', description: 'HH:MM' }, work_start: { type: 'string', description: 'HH:MM' }, gym_time: { type: 'string', description: 'HH:MM (abends)' }, gym_minutes: { type: 'number' } } } },
+  { name: 'rebuild_plan', description: 'Baut den Tagesplan aus dem aktuellen Rhythmus komplett neu.', input_schema: { type: 'object', properties: {} } },
+  { name: 'shift_plan', description: 'Verschiebt alle offenen Tagesplan-Blöcke um X Minuten (negativ = früher).', input_schema: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] } }
 ];
 
 function normStage(s) { if (!s) return 'neu'; s = ('' + s).toLowerCase().trim(); const m = { neu: 'neu', new: 'neu', kontaktiert: 'kontaktiert', contacted: 'kontaktiert', call: 'call', 'call gebucht': 'call', angebot: 'angebot', proposal: 'angebot', offer: 'angebot', gewonnen: 'gewonnen', won: 'gewonnen', verloren: 'verloren', lost: 'verloren' }; return m[s] || (STAGES.find(x => x.id === s) ? s : 'neu'); }
@@ -2441,6 +2461,9 @@ function executeTool(name, a) {
     case 'replan_day': { reflowPlan(); return 'Tag neu getaktet ab ' + minToHm(nowMin()) + '.'; }
     case 'get_calendar': { const ev = todaysEvents(); return ev.length ? ev.map(e => (e.allDay ? 'ganztägig' : minToHm(e.startMin) + '–' + minToHm(e.endMin)) + ' ' + e.title).join('\n') : 'Keine Termine heute (oder Kalender nicht verbunden).'; }
     case 'plan_around_calendar': { planAroundCalendar(); return 'Tagesplan dynamisch um die heutigen Termine herum getaktet.'; }
+    case 'set_routine': { app.profile = app.profile || {}; if (a.wake) app.profile.wake = a.wake; if (a.work_start) app.profile.workStart = a.work_start; if (a.gym_time) app.profile.gym = a.gym_time; if (a.gym_minutes) app.profile.gymDur = +a.gym_minutes; saveApp(); rebuildPlan(); return 'Rhythmus aktualisiert: Aufstehen ' + app.profile.wake + ', Arbeitsstart ' + app.profile.workStart + ', Gym ' + app.profile.gym + '. Tagesplan neu gebaut.'; }
+    case 'rebuild_plan': { rebuildPlan(); return 'Tagesplan aus dem aktuellen Rhythmus neu gebaut.'; }
+    case 'shift_plan': { const mm = Math.round(+a.minutes || 0); shiftPlan(mm); return 'Alle offenen Blöcke um ' + mm + ' min ' + (mm >= 0 ? 'nach hinten' : 'nach vorne') + ' verschoben.'; }
     default: return 'Unbekanntes Tool: ' + name;
   }
 }
@@ -2452,7 +2475,8 @@ function buildJarvisSystem() {
     .replace('MISSION_DAY', String(missionDayNow()))
     .replace('MEMORY_BLOCK', buildMemory())
     .replace('DAY_STATUS', buildDayStatus())
-    + '\n\nDU BIST JARVIS — du kannst das Dashboard aktiv bedienen. Nutze deine Tools, um Leads anzulegen/zu verschieben, Umsatz zu buchen, Follow-ups/Aufgaben zu setzen, KPIs zu erfassen, den Timer zu starten oder Ansichten zu öffnen, wenn Gabriel das möchte. Handle direkt und bestätige knapp, was du getan hast. Erfinde keine Zahlen; bei echter Unklarheit kurz nachfragen statt raten.';
+    + '\n\nDU BIST JARVIS — du kannst das Dashboard aktiv bedienen. Nutze deine Tools, um Leads anzulegen/zu verschieben, Umsatz zu buchen, Follow-ups/Aufgaben zu setzen, KPIs zu erfassen, den Timer zu starten, den Tagesplan zu takten/um Termine zu planen oder Ansichten zu öffnen, wenn Gabriel das möchte. Handle direkt und bestätige knapp, was du getan hast. Erfinde keine Zahlen; bei echter Unklarheit kurz nachfragen statt raten.'
+    + '\n\nAKTUELLER RHYTHMUS: Aufstehen ' + ((app.profile && app.profile.wake) || '07:00') + ', Arbeitsstart ' + ((app.profile && app.profile.workStart) || '08:30') + ', Gym ABENDS um ' + ((app.profile && app.profile.gym) || '19:00') + '. Wenn Gabriel seinen Rhythmus ändert (Aufsteh-, Arbeits- oder Gym-Zeit), nutze set_routine (baut den Plan neu). Für Verschiebungen nutze shift_plan, zum Neuaufbau rebuild_plan.';
 }
 
 async function anthropicCallFull(system, messages, tools, maxTokens) {
@@ -2552,17 +2576,50 @@ function highlightNow() {
 }
 
 /* ----- Dynamic day plan ----- */
+/* Profil-gesteuertes Tages-Template — ändert sich der Rhythmus (Aufstehen,
+   Arbeitsstart, Gym-Zeit), baut sich der ganze Plan neu. */
+function planTemplate(p) {
+  p = p || app.profile || {};
+  const wake = hmToMin(p.wake || '07:00'), ws = hmToMin(p.workStart || '08:30'), gym = hmToMin(p.gym || '19:00');
+  const gymDur = +p.gymDur || 90, runDur = +p.runDur || 45;
+  const items = []; const add = (title, start, dur, type) => items.push({ id: uid(), start, dur, title, type, done: false });
+  add('🌅 Aufstehen & Klarheit', wake, Math.max(30, Math.min(90, ws - wake)), 'admin');
+  let t = ws;
+  add('📊 Tages-Briefing + Meta Ads Check', t, 30, 'revenue'); t += 30;
+  add('✍️ Content-Block (Reel / Post)', t, 90, 'deep'); t += 90;
+  add('📩 DM Outreach (5 warme Leads)', t, 90, 'revenue'); t += 90;
+  add('📞 Sales Calls (2–3 Erstgespräche)', t, 120, 'revenue'); t += 120;
+  add('🍽️ Pause + Recharge', t, 45, 'admin'); t += 45;
+  add('⚙️ Funnel-Optimierung / Jarvis', t, 90, 'deep'); t += 90;
+  add('📣 Ad Creatives + Funnel Content', t, 90, 'revenue'); t += 90;
+  add('📋 Tages-Review + Morgen-Plan', Math.max(t, gym - 60), 45, 'review');
+  add('🏋️ GYM Session (abends)', gym, gymDur, 'gym');
+  add('🏃 5km Run', gym + gymDur, runDur, 'run');
+  return items.sort((a, b) => a.start - b.start);
+}
 function ensurePlan() {
-  if (!app.plan || app.plan.date !== todayKey()) {
-    const items = [];
-    planner[0].forEach(it => {
-      if (it.type === 'section' || !it.time) return;
-      const r = parseRange(it.time); if (r.start == null) return;
-      const dur = (r.end != null && r.end > r.start) ? r.end - r.start : 60;
-      items.push({ id: uid(), start: r.start, dur, title: it.title, type: it.type, done: false });
-    });
-    app.plan = { date: todayKey(), items }; saveApp();
+  if (!app.plan || app.plan.date !== todayKey() || app.plan.v !== 2) {
+    app.plan = { date: todayKey(), v: 2, items: planTemplate(app.profile) }; saveApp();
   }
+}
+function rebuildPlan() { app.plan = { date: todayKey(), v: 2, items: planTemplate(app.profile) }; saveApp(); if (document.getElementById('plan-list')) renderPlan(); if (document.body.dataset.view === 'cockpit') renderCockpit(); }
+function shiftPlan(min) { ensurePlan(); app.plan.items.forEach(i => { if (!i.done) i.start = Math.max(0, i.start + min); }); saveApp(); if (document.getElementById('plan-list')) renderPlan(); }
+function openProfile() {
+  const p = app.profile || {};
+  openModal('<h3>Rhythmus & Profil</h3>' +
+    '<label>Aufstehen</label><input class="fld" id="pf-wake" value="' + (p.wake || '07:00') + '">' +
+    '<label>Arbeitsstart</label><input class="fld" id="pf-ws" value="' + (p.workStart || '08:30') + '">' +
+    '<label>Gym (abends)</label><input class="fld" id="pf-gym" value="' + (p.gym || '19:00') + '">' +
+    '<label>Gym-Dauer (min)</label><input class="fld" id="pf-gd" type="number" value="' + (p.gymDur || 90) + '">' +
+    '<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn-gold" onclick="saveProfile()">Speichern & Plan neu bauen</button></div>');
+}
+function saveProfile() {
+  app.profile = app.profile || {};
+  app.profile.wake = (document.getElementById('pf-wake').value || '07:00').trim();
+  app.profile.workStart = (document.getElementById('pf-ws').value || '08:30').trim();
+  app.profile.gym = (document.getElementById('pf-gym').value || '19:00').trim();
+  app.profile.gymDur = +document.getElementById('pf-gd').value || 90;
+  saveApp(); rebuildPlan(); closeModal(); toast('Rhythmus aktualisiert — Plan neu gebaut');
 }
 function planItemStatus(it) { if (it.done) return 'done'; const n = nowMin(); if (n >= it.start + it.dur) return 'overdue'; if (n >= it.start) return 'now'; return 'upcoming'; }
 function renderPlan() {
